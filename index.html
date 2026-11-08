@@ -92,9 +92,20 @@
 
     <header>
         <h1>Bodegas Fuentenarro</h1>
-        <button onclick="iniciarSesionGoogle()" style="background: #000; color: #fff; border: none; padding: 8px 16px; cursor: pointer; font-size: 13px;">
-            Iniciar sesión con Google
-        </button>
+        
+        <!-- Contenedor para las opciones de acceso -->
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <!-- Inputs y botones de Email -->
+            <input type="email" id="email-input" placeholder="Correo electrónico" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;">
+            <input type="password" id="password-input" placeholder="Contraseña" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;">
+            <button onclick="registrarConEmail()" style="background: #333; color: #fff; border: none; padding: 7px 12px; cursor: pointer; font-size: 12px; border-radius: 4px;">Registrarse</button>
+            <button onclick="iniciarSesionConEmail()" style="background: #333; color: #fff; border: none; padding: 7px 12px; cursor: pointer; font-size: 12px; border-radius: 4px;">Entrar con Email</button>
+            
+            <!-- Botón de Google -->
+            <button onclick="iniciarSesionGoogle()" style="background: #4285F4; color: #fff; border: none; padding: 7px 12px; cursor: pointer; font-size: 12px; border-radius: 4px; font-weight: 500;">
+                Google
+            </button>
+        </div>
     </header>
 
     <main class="grid-productos">
@@ -144,16 +155,52 @@
         // Tu URL construida con el ID de tu proyecto
         const supabaseUrl = 'https://wifukeifpabvxuiwpeao.supabase.co'
         
-        // Tu Publishable key que copiaste antes
+        // Tu Publishable key
         const supabaseKey = 'sb_publishable_kzSSg5V2d2YVdvSpfLzKlg_ZWeJUPr2'
         
         const _supabase = supabase.createClient(supabaseUrl, supabaseKey)
 
+        // Inicio de sesión con Google
         async function iniciarSesionGoogle() {
             const { data, error } = await _supabase.auth.signInWithOAuth({
                 provider: 'google',
             })
             if (error) alert('Error al iniciar sesión: ' + error.message)
+        }
+
+        // Registro con Correo y Contraseña
+        async function registrarConEmail() {
+            const email = document.getElementById('email-input').value;
+            const password = document.getElementById('password-input').value;
+
+            const { data, error } = await _supabase.auth.signUp({
+                email: email,
+                password: password,
+            });
+
+            if (error) {
+                alert('Error al registrarse: ' + error.message);
+            } else {
+                alert('¡Registro exitoso! Ya puedes iniciar sesión con tu correo y contraseña.');
+            }
+        }
+
+        // Inicio de sesión con Correo y Contraseña
+        async function iniciarSesionConEmail() {
+            const email = document.getElementById('email-input').value;
+            const password = document.getElementById('password-input').value;
+
+            const { data, error } = await _supabase.auth.signInWithPassword({
+                email: email,
+                password: password,
+            });
+
+            if (error) {
+                alert('Error al iniciar sesión: ' + error.message);
+            } else {
+                alert('¡Inicio de sesión exitoso!');
+                location.reload();
+            }
         }
 
         function abrirModal(nombre, precio, desc) {
