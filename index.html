@@ -158,8 +158,7 @@
                 <!-- Los productos se cargan aquí dinámicamente -->
             </div>
             <p id="carrito-total" style="font-weight: bold; font-size: 16px; text-align: right; border-top: 1px solid #ddd; padding-top: 10px;"></p>
-            <button onclick="alert('¡Pronto implementaremos la pasarela de pago!');" style="width: 100%; background: #28a745; color: #fff; border: none; padding: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;">Tramitar Pedido</button>
-        </div>
+        <button onclick="tramitarPedido()" style="width: 100%; background: #28a745; color: #fff; border: none; padding: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;">Tramitar Pedido</button>        </div>
     </div>
 
     <script>
@@ -313,6 +312,20 @@
             carrito.splice(index, 1);
             actualizarContadorCarrito();
             abrirModalCarrito(); // Recarga la vista del carrito
+        }
+
+        // Función para redirigir a la pasarela de pago de Stripe
+        function tramitarPedido() {
+            if (carrito.length === 0) {
+                alert('El carrito está vacío.');
+                return;
+            }
+
+            // Enlace de pago de Stripe que acabas de crear
+            const enlaceStripe = 'https://buy.stripe.com/test_8x214ocq26Ke5Yn2QiaIM00';
+
+            // Redirige al usuario directamente a la pasarela segura de Stripe
+            window.location.href = enlaceStripe;
         }
     </script>
 </body>
