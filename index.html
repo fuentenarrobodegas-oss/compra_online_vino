@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bodegas Fuentenarro</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f9f9f9;
+            color: #111;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            border-bottom: 1px solid #e5e5e5;
+            padding-bottom: 20px;
+        }
+        h1 { font-size: 24px; text-transform: uppercase; letter-spacing: 2px; }
+        .grid-productos {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 24px;
+        }
+        .producto-card {
+            background: #fff;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            border: 1px solid #e5e5e5;
+            padding: 10px;
+        }
+        .producto-card:hover {
+            opacity: 0.85;
+        }
+        .producto-imagen {
+            width: 100%;
+            height: 350px;
+            background-color: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            font-size: 14px;
+        }
+        .producto-info {
+            padding: 12px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .producto-nombre {
+            font-size: 14px;
+            font-weight: 500;
+            margin: 0 0 4px 0;
+        }
+        .producto-precio {
+            font-size: 14px;
+            color: #666;
+        }
+        #modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 30px;
+            width: 400px;
+            max-width: 90%;
+            position: relative;
+        }
+        .cerrar {
+            position: absolute;
+            top: 15px; right: 15px;
+            cursor: pointer;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Bodegas Fuentenarro</h1>
+        <div>Mi Cuenta / Iniciar Sesión</div>
+    </header>
+
+    <main class="grid-productos">
+        <div class="producto-card" onclick="abrirModal('Vino Tinto Crianza 2020', '15,00 €', 'Un vino con cuerpo, notas de roble y frutos rojos maduros.')">
+            <div class="producto-imagen">[Foto Botella Vino]</div>
+            <div class="producto-info">
+                <div>
+                    <h3 class="producto-nombre">Vino Tinto Crianza 2020</h3>
+                    <small style="color:#777;">D.O. Ribera</small>
+                </div>
+                <span class="producto-precio">15,00 €</span>
+            </div>
+        </div>
+
+        <div class="producto-card" onclick="abrirModal('Vino Blanco Verdejo', '12,50 €', 'Fresco, frutal y con un toque herbáceo ideal para pescados.')">
+            <div class="producto-imagen">[Foto Botella Vino]</div>
+            <div class="producto-info">
+                <div>
+                    <h3 class="producto-nombre">Vino Blanco Verdejo</h3>
+                    <small style="color:#777;">D.O. Rueda</small>
+                </div>
+                <span class="producto-precio">12,50 €</span>
+            </div>
+        </div>
+    </main>
+
+    <div id="modal">
+        <div class="modal-content">
+            <span class="cerrar" onclick="cerrarModal()">&times;</span>
+            <h2 id="modal-titulo" style="margin-top:0;"></h2>
+            <p id="modal-desc" style="color: #666; font-size: 14px;"></p>
+            <p id="modal-precio" style="font-weight: bold; font-size: 16px;"></p>
+            
+            <div style="margin: 20px 0;">
+                <label for="unidades">Unidades:</label>
+                <input type="number" id="unidades" value="1" min="1" style="width: 50px; padding: 5px;">
+            </div>
+            
+            <button style="width: 100%; background: #000; color: #fff; border: none; padding: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px;">Añadir al carrito</button>
+        </div>
+    </div>
+
+    <script>
+        function abrirModal(nombre, precio, desc) {
+            document.getElementById('modal-titulo').innerText = nombre;
+            document.getElementById('modal-precio').innerText = precio;
+            document.getElementById('modal-desc').innerText = desc;
+            document.getElementById('modal').style.display = 'flex';
+        }
+        function cerrarModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
