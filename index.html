@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bodegas Fuentenarro</title>
     
-    <!-- 1. Cargamos la librería de Supabase correctamente -->
+    <!-- Cargamos la librería de Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
@@ -23,8 +23,10 @@
             margin-bottom: 40px;
             border-bottom: 1px solid #e5e5e5;
             padding-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
         }
-        h1 { font-size: 24px; text-transform: uppercase; letter-spacing: 2px; }
+        h1 { font-size: 24px; text-transform: uppercase; letter-spacing: 2px; margin: 0; }
         .grid-productos {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -65,13 +67,14 @@
             font-size: 14px;
             color: #666;
         }
-        #modal {
+        #modal, #modal-carrito {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.5);
             justify-content: center;
             align-items: center;
+            z-index: 1000;
         }
         .modal-content {
             background: #fff;
@@ -93,7 +96,7 @@
     <header>
         <h1>Bodegas Fuentenarro</h1>
         
-        <!-- Este contenedor cambiará según si el usuario está logueado o no -->
+        <!-- Contenedor dinámico para Autenticación y Carrito -->
         <div id="auth-container" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
             <input type="email" id="email-input" placeholder="Correo electrónico" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;">
             <input type="password" id="password-input" placeholder="Contraseña" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;">
@@ -104,7 +107,7 @@
     </header>
 
     <main class="grid-productos">
-        <div class="producto-card" onclick="abrirModal('Fuentenarro 4 meses en barrica', '15,00 €', 'Un vino con cuerpo, notas de roble y frutos rojos maduros.')">
+        <div class="producto-card" onclick="abrirModal('Fuentenarro 4 meses en barrica', 15.00, 'Un vino con cuerpo, notas de roble y frutos rojos maduros.')">
             <div class="producto-imagen">
                 <img src="4_meses_barrica.jpg" alt="Vino tinto" style="width: 100%; height: 100%; object-fit: cover;">
             </div>
@@ -117,7 +120,7 @@
             </div>
         </div>
 
-        <div class="producto-card" onclick="abrirModal('Vino Blanco Verdejo', '12,50 €', 'Fresco, frutal y con un toque herbáceo ideal para pescados.')">
+        <div class="producto-card" onclick="abrirModal('Vino Blanco Verdejo', 12.50, 'Fresco, frutal y con un toque herbáceo ideal para pescados.')">
             <div class="producto-imagen">[Foto Botella Vino]</div>
             <div class="producto-info">
                 <div>
@@ -129,6 +132,7 @@
         </div>
     </main>
 
+    <!-- Modal de Producto -->
     <div id="modal">
         <div class="modal-content">
             <span class="cerrar" onclick="cerrarModal()">&times;</span>
@@ -141,7 +145,20 @@
                 <input type="number" id="unidades" value="1" min="1" style="width: 50px; padding: 5px;">
             </div>
             
-            <button style="width: 100%; background: #000; color: #fff; border: none; padding: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px;">Añadir al carrito</button>
+            <button onclick="agregarAlCarrito()" style="width: 100%; background: #000; color: #fff; border: none; padding: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px;">Añadir al carrito</button>
+        </div>
+    </div>
+
+    <!-- Modal del Carrito -->
+    <div id="modal-carrito">
+        <div class="modal-content" style="width: 450px;">
+            <span class="cerrar" onclick="cerrarModalCarrito()">&times;</span>
+            <h2 style="margin-top:0;">Tu Carrito</h2>
+            <div id="lista-carrito" style="max-height: 250px; overflow-y: auto; margin-bottom: 20px;">
+                <!-- Los productos se cargan aquí dinámicamente -->
+            </div>
+            <p id="carrito-total" style="font-weight: bold; font-size: 16px; text-align: right; border-top: 1px solid #ddd; padding-top: 10px;"></p>
+            <button onclick="alert('¡Pronto implementaremos la pasarela de pago!');" style="width: 100%; background: #28a745; color: #fff; border: none; padding: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;">Tramitar Pedido</button>
         </div>
     </div>
 
@@ -150,25 +167,27 @@
         const supabaseKey = 'sb_publishable_kzSSg5V2d2YVdvSpfLzKlg_ZWeJUPr2'
         const _supabase = supabase.createClient(supabaseUrl, supabaseKey)
 
-        // Comprobar la sesión al cargar la página
+        // Estado global del carrito y producto seleccionado
+        let carrito = [];
+        let productoActual = {};
+
         window.addEventListener('DOMContentLoaded', async () => {
             const { data: { session } } = await _supabase.auth.getSession();
             actualizarInterfaz(session);
         });
 
-        // Función para pintar la interfaz según el estado
         function actualizarInterfaz(session) {
             const container = document.getElementById('auth-container');
             
             if (session) {
-                // Si el usuario ha iniciado sesión
                 const emailUsuario = session.user.email;
                 container.innerHTML = `
                     <span style="font-size: 13px; color: #333;">Hola, <strong>${emailUsuario}</strong></span>
+                    <button onclick="abrirModalCarrito()" style="background: #000; color: #fff; border: none; padding: 7px 12px; cursor: pointer; font-size: 12px; border-radius: 4px; font-weight: 500;">🛒 Carrito (<span id="contador-carrito">0</span>)</button>
                     <button onclick="cerrarSesion()" style="background: #d9534f; color: #fff; border: none; padding: 7px 12px; cursor: pointer; font-size: 12px; border-radius: 4px;">Cerrar sesión</button>
                 `;
+                actualizarContadorCarrito();
             } else {
-                // Si NO hay sesión, mostramos los formularios de acceso de nuevo
                 container.innerHTML = `
                     <input type="email" id="email-input" placeholder="Correo electrónico" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;">
                     <input type="password" id="password-input" placeholder="Contraseña" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;">
@@ -179,7 +198,6 @@
             }
         }
 
-        // Inicio de sesión con Google
         async function iniciarSesionGoogle() {
             const { data, error } = await _supabase.auth.signInWithOAuth({
                 provider: 'google',
@@ -190,54 +208,111 @@
             if (error) alert('Error al iniciar sesión: ' + error.message)
         }
 
-        // Registro con Correo y Contraseña
         async function registrarConEmail() {
             const email = document.getElementById('email-input').value;
             const password = document.getElementById('password-input').value;
 
-            const { data, error } = await _supabase.auth.signUp({
-                email: email,
-                password: password,
-            });
-
-            if (error) {
-                alert('Error al registrarse: ' + error.message);
-            } else {
-                alert('¡Registro exitoso! Ya puedes iniciar sesión.');
-            }
+            const { data, error } = await _supabase.auth.signUp({ email, password });
+            if (error) alert('Error al registrarse: ' + error.message);
+            else alert('¡Registro exitoso! Ya puedes iniciar sesión.');
         }
 
-        // Inicio de sesión con Correo y Contraseña
         async function iniciarSesionConEmail() {
             const email = document.getElementById('email-input').value;
             const password = document.getElementById('password-input').value;
 
-            const { data, error } = await _supabase.auth.signInWithPassword({
-                email: email,
-                password: password,
-            });
-
-            if (error) {
-                alert('Error al iniciar sesión: ' + error.message);
-            } else {
-                location.reload(); // Recarga para aplicar la sesión
-            }
+            const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+            if (error) alert('Error al iniciar sesión: ' + error.message);
+            else location.reload();
         }
 
-        // Cerrar sesión
         async function cerrarSesion() {
             await _supabase.auth.signOut();
             location.reload();
         }
 
         function abrirModal(nombre, precio, desc) {
+            productoActual = { nombre, precio, desc };
             document.getElementById('modal-titulo').innerText = nombre;
-            document.getElementById('modal-precio').innerText = precio;
+            document.getElementById('modal-precio').innerText = precio.toFixed(2).replace('.', ',') + ' €';
             document.getElementById('modal-desc').innerText = desc;
+            document.getElementById('unidades').value = 1;
             document.getElementById('modal').style.display = 'flex';
         }
+
         function cerrarModal() {
             document.getElementById('modal').style.display = 'none';
+        }
+
+        function agregarAlCarrito() {
+            const unidades = parseInt(document.getElementById('unidades').value) || 1;
+            
+            // Comprobar si el producto ya está en el carrito para sumar unidades
+            const index = carrito.findIndex(item => item.nombre === productoActual.nombre);
+            if (index > -1) {
+                carrito[index].unidades += unidades;
+            } else {
+                carrito.push({
+                    nombre: productoActual.nombre,
+                    precio: productoActual.precio,
+                    unidades: unidades
+                });
+            }
+
+            actualizarContadorCarrito();
+            cerrarModal();
+            alert('¡Producto añadido al carrito!');
+        }
+
+        function actualizarContadorCarrito() {
+            const totalUnidades = carrito.reduce((acc, item) => acc + item.unidades, 0);
+            const contadorEl = document.getElementById('contador-carrito');
+            if (contadorEl) contadorEl.innerText = totalUnidades;
+        }
+
+        function abrirModalCarrito() {
+            const listaEl = document.getElementById('lista-carrito');
+            const totalEl = document.getElementById('carrito-total');
+            
+            if (carrito.length === 0) {
+                listaEl.innerHTML = '<p style="color: #777; text-align: center;">Tu carrito está vacío.</p>';
+                totalEl.innerText = 'Total: 0,00 €';
+            } else {
+                let html = '';
+                let precioTotal = 0;
+                
+                carrito.forEach((item, index) => {
+                    const subtotal = item.precio * item.unidades;
+                    precioTotal += subtotal;
+                    html += `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                            <div>
+                                <strong style="font-size: 13px;">${item.nombre}</strong><br>
+                                <small style="color: #666;">${item.unidades} x ${item.precio.toFixed(2).replace('.', ',')} €</small>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-weight: bold; font-size: 13px;">${subtotal.toFixed(2).replace('.', ',')} €</span>
+                                <button onclick="eliminarDelCarrito(${index})" style="background: #ff4d4d; color: #fff; border: none; padding: 4px 8px; cursor: pointer; font-size: 11px; border-radius: 3px;">X</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                listaEl.innerHTML = html;
+                totalEl.innerText = 'Total: ' + precioTotal.toFixed(2).replace('.', ',') + ' €';
+            }
+            
+            document.getElementById('modal-carrito').style.display = 'flex';
+        }
+
+        function cerrarModalCarrito() {
+            document.getElementById('modal-carrito').style.display = 'none';
+        }
+
+        function eliminarDelCarrito(index) {
+            carrito.splice(index, 1);
+            actualizarContadorCarrito();
+            abrirModalCarrito(); // Recarga la vista del carrito
         }
     </script>
 </body>
