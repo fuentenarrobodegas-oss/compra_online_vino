@@ -93,18 +93,13 @@
     <header>
         <h1>Bodegas Fuentenarro</h1>
         
-        <!-- Contenedor para las opciones de acceso -->
-        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-            <!-- Inputs y botones de Email -->
+        <!-- Este contenedor cambiará según si el usuario está logueado o no -->
+        <div id="auth-container" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
             <input type="email" id="email-input" placeholder="Correo electrónico" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;">
             <input type="password" id="password-input" placeholder="Contraseña" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;">
             <button onclick="registrarConEmail()" style="background: #333; color: #fff; border: none; padding: 7px 12px; cursor: pointer; font-size: 12px; border-radius: 4px;">Registrarse</button>
             <button onclick="iniciarSesionConEmail()" style="background: #333; color: #fff; border: none; padding: 7px 12px; cursor: pointer; font-size: 12px; border-radius: 4px;">Entrar con Email</button>
-            
-            <!-- Botón de Google -->
-            <button onclick="iniciarSesionGoogle()" style="background: #4285F4; color: #fff; border: none; padding: 7px 12px; cursor: pointer; font-size: 12px; border-radius: 4px; font-weight: 500;">
-                Google
-            </button>
+            <button onclick="iniciarSesionGoogle()" style="background: #4285F4; color: #fff; border: none; padding: 7px 12px; cursor: pointer; font-size: 12px; border-radius: 4px; font-weight: 500;">Google</button>
         </div>
     </header>
 
@@ -150,15 +145,39 @@
         </div>
     </div>
 
-    <!-- 2. Tu script independiente con la lógica de Supabase y el modal -->
     <script>
-        // Tu URL construida con el ID de tu proyecto
         const supabaseUrl = 'https://wifukeifpabvxuiwpeao.supabase.co'
-        
-        // Tu Publishable key
         const supabaseKey = 'sb_publishable_kzSSg5V2d2YVdvSpfLzKlg_ZWeJUPr2'
-        
         const _supabase = supabase.createClient(supabaseUrl, supabaseKey)
+
+        // Comprobar la sesión al cargar la página
+        window.addEventListener('DOMContentLoaded', async () => {
+            const { data: { session } } = await _supabase.auth.getSession();
+            actualizarInterfaz(session);
+        });
+
+        // Función para pintar la interfaz según el estado
+        function actualizarInterfaz(session) {
+            const container = document.getElementById('auth-container');
+            
+            if (session) {
+                // Si el usuario ha iniciado sesión
+                const emailUsuario = session.user.email;
+                container.innerHTML = `
+                    <span style="font-size: 13px; color: #333;">Hola, <strong>${emailUsuario}</strong></span>
+                    <button onclick="cerrarSesion()" style="background: #d9534f; color: #fff; border: none; padding: 7px 12px; cursor: pointer; font-size: 12px; border-radius: 4px;">Cerrar sesión</button>
+                `;
+            } else {
+                // Si NO hay sesión, mostramos los formularios de acceso de nuevo
+                container.innerHTML = `
+                    <input type="email" id="email-input" placeholder="Correo electrónico" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;">
+                    <input type="password" id="password-input" placeholder="Contraseña" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;">
+                    <button onclick="registrarConEmail()" style="background: #333; color: #fff; border: none; padding: 7px 12px; cursor: pointer; font-size: 12px; border-radius: 4px;">Registrarse</button>
+                    <button onclick="iniciarSesionConEmail()" style="background: #333; color: #fff; border: none; padding: 7px 12px; cursor: pointer; font-size: 12px; border-radius: 4px;">Entrar con Email</button>
+                    <button onclick="iniciarSesionGoogle()" style="background: #4285F4; color: #fff; border: none; padding: 7px 12px; cursor: pointer; font-size: 12px; border-radius: 4px; font-weight: 500;">Google</button>
+                `;
+            }
+        }
 
         // Inicio de sesión con Google
         async function iniciarSesionGoogle() {
@@ -181,7 +200,7 @@
             if (error) {
                 alert('Error al registrarse: ' + error.message);
             } else {
-                alert('¡Registro exitoso! Ya puedes iniciar sesión con tu correo y contraseña.');
+                alert('¡Registro exitoso! Ya puedes iniciar sesión.');
             }
         }
 
@@ -198,9 +217,14 @@
             if (error) {
                 alert('Error al iniciar sesión: ' + error.message);
             } else {
-                alert('¡Inicio de sesión exitoso!');
-                location.reload();
+                location.reload(); // Recarga para aplicar la sesión
             }
+        }
+
+        // Cerrar sesión
+        async function cerrarSesion() {
+            await _supabase.auth.signOut();
+            location.reload();
         }
 
         function abrirModal(nombre, precio, desc) {
