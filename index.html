@@ -141,12 +141,14 @@
 
     <!-- 2. Tu script independiente con la lógica de Supabase y el modal -->
     <script>
-        // Tus credenciales de Supabase (Sustitúyelas por las tuyas reales del panel)
-        const supabaseUrl = 'https://tu-proyecto.supabase.co'
-        const supabaseKey = 'tu-clave-publica-anon-key'
+        // Tu URL construida con el ID de tu proyecto
+        const supabaseUrl = 'https://wifukeifpabvxuiwpeao.supabase.co'
+        
+        // Tu Publishable key que copiaste antes
+        const supabaseKey = 'sb_publishable_kzSSg5V2d2YVdvSpfLzKlg_ZWeJUPr2'
+        
         const _supabase = supabase.createClient(supabaseUrl, supabaseKey)
 
-        // Función para iniciar sesión con Google de forma segura
         async function iniciarSesionGoogle() {
             const { data, error } = await _supabase.auth.signInWithOAuth({
                 provider: 'google',
@@ -154,7 +156,6 @@
             if (error) alert('Error al iniciar sesión: ' + error.message)
         }
 
-        // Funciones del Modal de productos
         function abrirModal(nombre, precio, desc) {
             document.getElementById('modal-titulo').innerText = nombre;
             document.getElementById('modal-precio').innerText = precio;
