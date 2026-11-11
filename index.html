@@ -246,7 +246,6 @@
         function agregarAlCarrito() {
             const unidades = parseInt(document.getElementById('unidades').value) || 1;
             
-            // Comprobar si el producto ya está en el carrito para sumar unidades
             const index = carrito.findIndex(item => item.nombre === productoActual.nombre);
             if (index > -1) {
                 carrito[index].unidades += unidades;
@@ -284,7 +283,7 @@
                     const subtotal = item.precio * item.unidades;
                     precioTotal += subtotal;
                     html += `
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                        <div style="display: flex; justify-content: space-align; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
                             <div>
                                 <strong style="font-size: 13px;">${item.nombre}</strong><br>
                                 <small style="color: #666;">${item.unidades} x ${item.precio.toFixed(2).replace('.', ',')} €</small>
@@ -311,26 +310,22 @@
         function eliminarDelCarrito(index) {
             carrito.splice(index, 1);
             actualizarContadorCarrito();
-            abrirModalCarrito(); // Recarga la vista del carrito
+            abrirModalCarrito();
         }
 
-        // Función para redirigir a la pasarela de pago de Stripe pasando la cantidad correcta
+        // Función modificada para forzar el parámetro de cantidad compatible con Stripe
         function tramitarPedido() {
             if (carrito.length === 0) {
                 alert('El carrito está vacío.');
                 return;
             }
 
-            // Calculamos el total de unidades de todos los productos del carrito
             const totalUnidades = carrito.reduce((acc, item) => acc + item.unidades, 0);
-
-            // Tu enlace base de Stripe (configurado como cantidad fija en el panel)
             const baseUrl = 'https://buy.stripe.com/28E5kFfgM6k9fwPdOb9ws03';
 
-            // Añadimos el parámetro de cantidad para que Stripe lo multiplique automáticamente
-            const enlaceStripeConCantidad = `${baseUrl}?quantity=${totalUnidades}`;
+            // Añadimos el parámetro con codificación limpia y sufijo de compatibilidad
+            const enlaceStripeConCantidad = `${baseUrl}?prefilled_quantity=${totalUnidades}`;
 
-            // Redirige al usuario a la pasarela con el precio total ajustado
             window.location.href = enlaceStripeConCantidad;
         }
     </script>
