@@ -324,12 +324,11 @@
             // Calculamos el total de unidades de todos los productos del carrito
             const totalUnidades = carrito.reduce((acc, item) => acc + item.unidades, 0);
 
-            // Tu enlace base de Stripe
+            // Tu enlace base de Stripe (configurado como cantidad fija en el panel)
             const baseUrl = 'https://buy.stripe.com/28E5kFfgM6k9fwPdOb9ws03';
 
-            // Construimos la URL final comprobando que la cantidad sea válida al menos de 1
-            const cantidadFinal = totalUnidades > 0 ? totalUnidades : 1;
-            const enlaceStripeConCantidad = `${baseUrl}?quantity=${cantidadFinal}`;
+            // Añadimos el parámetro de cantidad para que Stripe lo multiplique automáticamente
+            const enlaceStripeConCantidad = `${baseUrl}?quantity=${totalUnidades}`;
 
             // Redirige al usuario a la pasarela con el precio total ajustado
             window.location.href = enlaceStripeConCantidad;
