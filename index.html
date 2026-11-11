@@ -319,17 +319,14 @@
                 return;
             }
 
-            // Calculamos el total de unidades de todos los productos del carrito
+            // Calculamos el total de unidades del carrito
             const totalUnidades = carrito.reduce((acc, item) => acc + item.unidades, 0);
 
-            // Tu enlace base real de Stripe
+            // Tu enlace base original limpio de Stripe que sí funcionaba sin dar errores
             const baseUrl = 'https://buy.stripe.com/28E5kFfgM6k9fwPdOb9ws03';
 
-            // Usamos 'prefilled_quantity' que es el parámetro oficial de Stripe Payment Links
-            const enlaceStripeConCantidad = `${baseUrl}?prefilled_quantity=${totalUnidades}`;
-
-            // Redirige al usuario a la pasarela con el total ajustado
-            window.location.href = enlaceStripeConCantidad;
+            // Redirigimos directamente al enlace base válido
+            window.location.href = baseUrl;
         }
     </script>
 </body>
