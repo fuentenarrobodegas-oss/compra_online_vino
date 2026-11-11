@@ -314,18 +314,24 @@
             abrirModalCarrito(); // Recarga la vista del carrito
         }
 
-        // Función para redirigir a la pasarela de pago de Stripe
+        // Función para redirigir a la pasarela de pago de Stripe pasando la cantidad correcta
         function tramitarPedido() {
             if (carrito.length === 0) {
                 alert('El carrito está vacío.');
                 return;
             }
 
-            // Enlace de pago de Stripe que acabas de crear
-            const enlaceStripe = 'https://buy.stripe.com/test_8x214ocq26Ke5Yn2QiaIM00';
+            // Calculamos el total de unidades de todos los productos del carrito
+            const totalUnidades = carrito.reduce((acc, item) => acc + item.unidades, 0);
 
-            // Redirige al usuario directamente a la pasarela segura de Stripe
-            window.location.href = enlaceStripe;
+            // Tu enlace base de Stripe
+            const baseUrl = 'https://buy.stripe.com/test_8x214ocq26Ke5Yn2QiaIM00';
+
+            // Añadimos el parámetro '?quantity=' para que Stripe cobre exactamente las unidades elegidas
+            const enlaceStripeConCantidad = `${baseUrl}?quantity=${totalUnidades}`;
+
+            // Redirige al usuario a la pasarela con el precio total ajustado
+            window.location.href = enlaceStripeConCantidad;
         }
     </script>
 </body>
