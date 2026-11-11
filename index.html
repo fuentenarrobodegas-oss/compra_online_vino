@@ -327,8 +327,9 @@
             // Tu enlace base de Stripe
             const baseUrl = 'https://buy.stripe.com/4gMaEZb0w5g52K3cK79ws02';
 
-            // Añadimos el parámetro '?quantity=' para que Stripe cobre exactamente las unidades elegidas
-            const enlaceStripeConCantidad = `${baseUrl}?quantity=${totalUnidades}`;
+            // Construimos la URL final comprobando que la cantidad sea válida al menos de 1
+            const cantidadFinal = totalUnidades > 0 ? totalUnidades : 1;
+            const enlaceStripeConCantidad = `${baseUrl}?quantity=${cantidadFinal}`;
 
             // Redirige al usuario a la pasarela con el precio total ajustado
             window.location.href = enlaceStripeConCantidad;
