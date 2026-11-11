@@ -313,20 +313,27 @@
             abrirModalCarrito();
         }
 
-        // Función modificada para forzar el parámetro de cantidad compatible con Stripe
         function tramitarPedido() {
             if (carrito.length === 0) {
                 alert('El carrito está vacío.');
                 return;
             }
 
+            // Calculamos el total de unidades del carrito
             const totalUnidades = carrito.reduce((acc, item) => acc + item.unidades, 0);
-            const baseUrl = 'https://buy.stripe.com/28E5kFfgM6k9fwPdOb9ws03';
 
-            // Añadimos el parámetro con codificación limpia y sufijo de compatibilidad
-            const enlaceStripeConCantidad = `${baseUrl}?prefilled_quantity=${totalUnidades}`;
+            // Sustituye 'price_TU_ID_REAL' por el ID de precio real de tu producto en Stripe (ej: price_1OpQ...)
+            const priceId = 'price_1UakYNPxQvZjkavR4BNetvzV'; 
 
-            window.location.href = enlaceStripeConCantidad;
+            // Stripe Checkout acepta la creación de sesiones directas por URL con esta estructura de parámetros
+            // Nota: Si prefieres seguir usando el enlace pero con un botón de redirección por ID de precio:
+            // La alternativa más robusta para cantidades dinámicas sin servidor es redirigir indicando la cantidad exacta del Price ID:
+            
+            // Construimos la redirección limpia
+            const urlCheckout = `https://checkout.stripe.com/c/pay/${priceId}?quantity=${totalUnidades}`;
+            
+            // O si prefieres mantener tu pasarela actual pero asegurando el parámetro de línea:
+            window.location.href = `https://buy.stripe.com/28E5kFfgM6k9fwPdOb9ws03?quantity=${totalUnidades}`;
         }
     </script>
 </body>
