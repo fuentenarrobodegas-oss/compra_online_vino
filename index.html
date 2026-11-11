@@ -319,14 +319,17 @@
                 return;
             }
 
-            // Calculamos el total de unidades del carrito
+            // Calculamos el total de unidades de todos los productos del carrito
             const totalUnidades = carrito.reduce((acc, item) => acc + item.unidades, 0);
 
-            // Usamos tu ID de precio real de Stripe con el parámetro de cantidad nativo
-            const priceId = 'price_1UakYNPxQvZjkavR4BNetvzV'; 
+            // Tu enlace base real de Stripe
+            const baseUrl = 'https://buy.stripe.com/28E5kFfgM6k9fwPdOb9ws03';
 
-            // Redirigimos directamente a la pasarela de Stripe pasando el precio y la cantidad multiplicada
-            window.location.href = `https://buy.stripe.com/${priceId}?quantity=${totalUnidades}`;
+            // Usamos 'prefilled_quantity' que es el parámetro oficial de Stripe Payment Links
+            const enlaceStripeConCantidad = `${baseUrl}?prefilled_quantity=${totalUnidades}`;
+
+            // Redirige al usuario a la pasarela con el total ajustado
+            window.location.href = enlaceStripeConCantidad;
         }
     </script>
 </body>
