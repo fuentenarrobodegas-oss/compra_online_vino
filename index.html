@@ -38,6 +38,7 @@
             transition: opacity 0.2s;
             border: 1px solid #e5e5e5;
             padding: 10px;
+            max-width: 300px;
         }
         .producto-card:hover {
             opacity: 0.85;
@@ -107,8 +108,8 @@
     </header>
 
     <main class="grid-productos">
-        <!-- Producto adaptado con opciones de Packs -->
-        <div class="producto-card" onclick="abrirModal('Fuentenarro 4 meses en barrica', 15.00, 'Un vino con cuerpo, notas de roble y frutos rojos maduros.')">
+        <!-- Único producto activo: Fuentenarro 4 meses en barrica -->
+        <div class="producto-card" onclick="abrirModal('Fuentenarro 4 meses en barrica', 'Un vino con cuerpo, notas de roble y frutos rojos maduros.')">
             <div class="producto-imagen">
                 <img src="4_meses_barrica.jpg" alt="Vino tinto" style="width: 100%; height: 100%; object-fit: cover;">
             </div>
@@ -117,36 +118,26 @@
                     <h3 class="producto-nombre">Fuentenarro 4 meses en barrica</h3>
                     <small style="color:#777;">D.O. Ribera de Duero</small>
                 </div>
-                <span class="producto-precio">Desde 27,00 €</span>
-            </div>
-        </div>
-
-        <div class="producto-card" onclick="abrirModal('Vino Blanco Verdejo', 12.50, 'Fresco, frutal y con un toque herbáceo ideal para pescados.')">
-            <div class="producto-imagen">[Foto Botella Vino]</div>
-            <div class="producto-info">
-                <div>
-                    <h3 class="producto-nombre">Vino Blanco Verdejo</h3>
-                    <small style="color:#777;">D.O. Rueda</small>
-                </div>
-                <span class="producto-precio">Desde 27,00 €</span>
+                <span class="producto-precio">Desde 4,50 €</span>
             </div>
         </div>
     </main>
 
-    <!-- Modal de Producto con selector de Packs -->
+    <!-- Modal de Producto con selector de Packs y cantidades exactas -->
     <div id="modal">
         <div class="modal-content">
             <span class="cerrar" onclick="cerrarModal()">&times;</span>
             <h2 id="modal-titulo" style="margin-top:0;"></h2>
             <p id="modal-desc" style="color: #666; font-size: 14px;"></p>
-            <p id="modal-precio-unitario" style="font-weight: bold; font-size: 16px; color: #333;"></p>
+            <p style="font-weight: bold; font-size: 14px; color: #333;">Precio por botella: 4,50 €</p>
             
             <div style="margin: 20px 0;">
                 <label for="tipo-pack" style="display: block; margin-bottom: 8px; font-weight: 500;">Selecciona formato:</label>
                 <select id="tipo-pack" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
-                    <option value="6">Caja de 6 botellas (27,00 € - 4,50€/ud)</option>
-                    <option value="12">Caja de 12 botellas (54,00 € - 4,50€/ud)</option>
-                    <option value="1">Botella suelta (4,50 €)</option>
+                    <option value="1">1 botella (4,50 €)</option>
+                    <option value="6">1 caja x 6 botellas (27,00 €)</option>
+                    <option value="12">2 cajas x 12 botellas (54,00 €)</option>
+                    <option value="24">4 cajas x 24 botellas (108,00 €)</option>
                 </select>
             </div>
             
@@ -235,11 +226,11 @@
             location.reload();
         }
 
-        function abrirModal(nombre, precioBase, desc) {
+        function abrirModal(nombre, desc) {
             productoActual = { nombre, desc };
             document.getElementById('modal-titulo').innerText = nombre;
             document.getElementById('modal-desc').innerText = desc;
-            document.getElementById('modal-precio-unitario').innerText = 'Precio por botella: 4,50 €';
+            document.getElementById('tipo-pack').value = "6"; // Por defecto seleccionada 1 caja de 6
             document.getElementById('modal').style.display = 'flex';
         }
 
@@ -249,12 +240,11 @@
 
         function agregarAlCarrito() {
             const selectPack = document.getElementById('tipo-pack');
-            const unidadesPorPack = parseInt(selectPack.value);
+            const totalUnidades = parseInt(selectPack.value);
             const nombrePack = selectPack.options[selectPack.selectedIndex].text;
             
-            // Calculamos precio a 4,50€ la botella según el pack elegido
-            const precioTotalPack = unidadesPorPack * 4.50;
-
+            // Cálculo exacto a 4,50€ por botella
+            const precioTotalPack = totalUnidades * 4.50;
             const itemNombre = `${productoActual.nombre} (${nombrePack})`;
 
             const index = carrito.findIndex(item => item.nombre === itemNombre);
@@ -265,7 +255,7 @@
                     nombre: itemNombre,
                     precio: precioTotalPack,
                     cantidadPacks: 1,
-                    unidadesTotales: unidadesPorPack
+                    unidadesTotales: totalUnidades
                 });
             }
 
@@ -298,7 +288,7 @@
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
                             <div>
                                 <strong style="font-size: 13px;">${item.nombre}</strong><br>
-                                <small style="color: #666;">Cant: ${item.cantidadPacks} x ${item.precio.toFixed(2).replace('.', ',')} €</small>
+                                <small style="color: #666;">Cant packs: ${item.cantidadPacks}</small>
                             </div>
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <span style="font-weight: bold; font-size: 13px;">${subtotal.toFixed(2).replace('.', ',')} €</span>
@@ -331,12 +321,26 @@
                 return;
             }
 
-            // Aquí puedes mapear cada pack con su respectivo Enlace de Pago limpio de Stripe
-            // (por ejemplo, creas un Payment Link en Stripe para la caja de 6 y otro para la caja de 12)
-            // Para esta prueba, redirigimos al enlace principal de pago configurado en Stripe:
-            const baseUrl = 'https://buy.stripe.com/28E5kFfgM6k9fwPdOb9ws03';
+            // Calculamos el total de unidades de todos los artículos acumulados en el carrito
+            const totalUnidades = carrito.reduce((acc, item) => acc + (item.unidadesTotales * item.cantidadPacks), 0);
 
-            window.location.href = baseUrl;
+            // Mapeo exacto con tus enlaces de pago limpios y oficiales de Stripe
+            const enlacesStripe = {
+                1: 'https://buy.stripe.com/8x24gB0lS5g5doHfWj9ws04',   // 1 botella
+                6: 'https://buy.stripe.com/4gM4gB0lS23T2K3fWj9ws05',   // 1 caja x 6 botellas
+                12: 'https://buy.stripe.com/aFa8wR7OkfUJfwP5hF9ws06',  // 2 cajas x 12 botellas
+                24: 'https://buy.stripe.com/cNi3cx5GceQF4Sb6lJ9ws07'   // 4 cajas x 24 botellas
+            };
+
+            // Redirigimos al enlace correspondiente según el número exacto de botellas elegidas
+            const urlDestino = enlacesStripe[totalUnidades];
+            
+            if (urlDestino) {
+                window.location.href = urlDestino;
+            } else {
+                // Si hay una combinación mixta personalizada, redirigimos al enlace base de 1 botella o informamos
+                window.location.href = 'https://buy.stripe.com/8x24gB0lS5g5doHfWj9ws04';
+            }
         }
     </script>
 </body>
