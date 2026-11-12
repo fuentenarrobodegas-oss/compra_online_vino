@@ -107,6 +107,7 @@
     </header>
 
     <main class="grid-productos">
+        <!-- Producto adaptado con opciones de Packs -->
         <div class="producto-card" onclick="abrirModal('Fuentenarro 4 meses en barrica', 15.00, 'Un vino con cuerpo, notas de roble y frutos rojos maduros.')">
             <div class="producto-imagen">
                 <img src="4_meses_barrica.jpg" alt="Vino tinto" style="width: 100%; height: 100%; object-fit: cover;">
@@ -116,7 +117,7 @@
                     <h3 class="producto-nombre">Fuentenarro 4 meses en barrica</h3>
                     <small style="color:#777;">D.O. Ribera de Duero</small>
                 </div>
-                <span class="producto-precio">15,00 €</span>
+                <span class="producto-precio">Desde 27,00 €</span>
             </div>
         </div>
 
@@ -127,25 +128,29 @@
                     <h3 class="producto-nombre">Vino Blanco Verdejo</h3>
                     <small style="color:#777;">D.O. Rueda</small>
                 </div>
-                <span class="producto-precio">12,50 €</span>
+                <span class="producto-precio">Desde 27,00 €</span>
             </div>
         </div>
     </main>
 
-    <!-- Modal de Producto -->
+    <!-- Modal de Producto con selector de Packs -->
     <div id="modal">
         <div class="modal-content">
             <span class="cerrar" onclick="cerrarModal()">&times;</span>
             <h2 id="modal-titulo" style="margin-top:0;"></h2>
             <p id="modal-desc" style="color: #666; font-size: 14px;"></p>
-            <p id="modal-precio" style="font-weight: bold; font-size: 16px;"></p>
+            <p id="modal-precio-unitario" style="font-weight: bold; font-size: 16px; color: #333;"></p>
             
             <div style="margin: 20px 0;">
-                <label for="unidades">Unidades:</label>
-                <input type="number" id="unidades" value="1" min="1" style="width: 50px; padding: 5px;">
+                <label for="tipo-pack" style="display: block; margin-bottom: 8px; font-weight: 500;">Selecciona formato:</label>
+                <select id="tipo-pack" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+                    <option value="6">Caja de 6 botellas (27,00 € - 4,50€/ud)</option>
+                    <option value="12">Caja de 12 botellas (54,00 € - 4,50€/ud)</option>
+                    <option value="1">Botella suelta (4,50 €)</option>
+                </select>
             </div>
             
-            <button onclick="agregarAlCarrito()" style="width: 100%; background: #000; color: #fff; border: none; padding: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px;">Añadir al carrito</button>
+            <button onclick="agregarAlCarrito()" style="width: 100%; background: #000; color: #fff; border: none; padding: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;">Añadir al carrito</button>
         </div>
     </div>
 
@@ -158,7 +163,8 @@
                 <!-- Los productos se cargan aquí dinámicamente -->
             </div>
             <p id="carrito-total" style="font-weight: bold; font-size: 16px; text-align: right; border-top: 1px solid #ddd; padding-top: 10px;"></p>
-        <button onclick="tramitarPedido()" style="width: 100%; background: #28a745; color: #fff; border: none; padding: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;">Tramitar Pedido</button>        </div>
+            <button onclick="tramitarPedido()" style="width: 100%; background: #28a745; color: #fff; border: none; padding: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;">Tramitar Pedido</button>
+        </div>
     </div>
 
     <script>
@@ -166,7 +172,6 @@
         const supabaseKey = 'sb_publishable_kzSSg5V2d2YVdvSpfLzKlg_ZWeJUPr2'
         const _supabase = supabase.createClient(supabaseUrl, supabaseKey)
 
-        // Estado global del carrito y producto seleccionado
         let carrito = [];
         let productoActual = {};
 
@@ -230,12 +235,11 @@
             location.reload();
         }
 
-        function abrirModal(nombre, precio, desc) {
-            productoActual = { nombre, precio, desc };
+        function abrirModal(nombre, precioBase, desc) {
+            productoActual = { nombre, desc };
             document.getElementById('modal-titulo').innerText = nombre;
-            document.getElementById('modal-precio').innerText = precio.toFixed(2).replace('.', ',') + ' €';
             document.getElementById('modal-desc').innerText = desc;
-            document.getElementById('unidades').value = 1;
+            document.getElementById('modal-precio-unitario').innerText = 'Precio por botella: 4,50 €';
             document.getElementById('modal').style.display = 'flex';
         }
 
@@ -244,28 +248,36 @@
         }
 
         function agregarAlCarrito() {
-            const unidades = parseInt(document.getElementById('unidades').value) || 1;
+            const selectPack = document.getElementById('tipo-pack');
+            const unidadesPorPack = parseInt(selectPack.value);
+            const nombrePack = selectPack.options[selectPack.selectedIndex].text;
             
-            const index = carrito.findIndex(item => item.nombre === productoActual.nombre);
+            // Calculamos precio a 4,50€ la botella según el pack elegido
+            const precioTotalPack = unidadesPorPack * 4.50;
+
+            const itemNombre = `${productoActual.nombre} (${nombrePack})`;
+
+            const index = carrito.findIndex(item => item.nombre === itemNombre);
             if (index > -1) {
-                carrito[index].unidades += unidades;
+                carrito[index].cantidadPacks += 1;
             } else {
                 carrito.push({
-                    nombre: productoActual.nombre,
-                    precio: productoActual.precio,
-                    unidades: unidades
+                    nombre: itemNombre,
+                    precio: precioTotalPack,
+                    cantidadPacks: 1,
+                    unidadesTotales: unidadesPorPack
                 });
             }
 
             actualizarContadorCarrito();
             cerrarModal();
-            alert('¡Producto añadido al carrito!');
+            alert('¡Pack añadido al carrito!');
         }
 
         function actualizarContadorCarrito() {
-            const totalUnidades = carrito.reduce((acc, item) => acc + item.unidades, 0);
+            const totalPacks = carrito.reduce((acc, item) => acc + item.cantidadPacks, 0);
             const contadorEl = document.getElementById('contador-carrito');
-            if (contadorEl) contadorEl.innerText = totalUnidades;
+            if (contadorEl) contadorEl.innerText = totalPacks;
         }
 
         function abrirModalCarrito() {
@@ -280,13 +292,13 @@
                 let precioTotal = 0;
                 
                 carrito.forEach((item, index) => {
-                    const subtotal = item.precio * item.unidades;
+                    const subtotal = item.precio * item.cantidadPacks;
                     precioTotal += subtotal;
                     html += `
-                        <div style="display: flex; justify-content: space-align; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
                             <div>
                                 <strong style="font-size: 13px;">${item.nombre}</strong><br>
-                                <small style="color: #666;">${item.unidades} x ${item.precio.toFixed(2).replace('.', ',')} €</small>
+                                <small style="color: #666;">Cant: ${item.cantidadPacks} x ${item.precio.toFixed(2).replace('.', ',')} €</small>
                             </div>
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <span style="font-weight: bold; font-size: 13px;">${subtotal.toFixed(2).replace('.', ',')} €</span>
@@ -319,15 +331,4 @@
                 return;
             }
 
-            // Calculamos el total de unidades del carrito
-            const totalUnidades = carrito.reduce((acc, item) => acc + item.unidades, 0);
-
-            // Tu enlace base original limpio de Stripe que sí funcionaba sin dar errores
-            const baseUrl = 'https://buy.stripe.com/28E5kFfgM6k9fwPdOb9ws03';
-
-            // Redirigimos directamente al enlace base válido
-            window.location.href = baseUrl;
-        }
-    </script>
-</body>
-</html>
+            // Aquí
