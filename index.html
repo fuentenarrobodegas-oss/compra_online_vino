@@ -331,4 +331,13 @@
                 return;
             }
 
-            // Aquí
+            // Aquí puedes mapear cada pack con su respectivo Enlace de Pago limpio de Stripe
+            // (por ejemplo, creas un Payment Link en Stripe para la caja de 6 y otro para la caja de 12)
+            // Para esta prueba, redirigimos al enlace principal de pago configurado en Stripe:
+            const baseUrl = 'https://buy.stripe.com/28E5kFfgM6k9fwPdOb9ws03';
+
+            window.location.href = baseUrl;
+        }
+    </script>
+</body>
+</html>
