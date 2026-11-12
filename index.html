@@ -20,7 +20,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 40px;
             border-bottom: 1px solid #e5e5e5;
             padding-bottom: 20px;
             flex-wrap: wrap;
@@ -107,11 +107,6 @@
         </div>
     </header>
 
-    <!-- Aviso global visible antes de comprar -->
-    <div style="background: #fff3cd; color: #856404; padding: 12px; font-size: 13px; border-radius: 6px; margin-bottom: 30px; border: 1px solid #ffeeba; text-align: center;">
-        ⚠️ <strong>Aviso importante:</strong> Cada pedido se tramita de forma individual seleccionando un único formato o pack por compra.
-    </div>
-
     <main class="grid-productos">
         <!-- Único producto activo: Fuentenarro 4 meses en barrica -->
         <div class="producto-card" onclick="abrirModal('Fuentenarro 4 meses en barrica', 'Un vino con cuerpo, notas de roble y frutos rojos maduros.')">
@@ -145,13 +140,13 @@
                     <option value="24">4 cajas x 24 botellas (108,00 €)</option>
                 </select>
             </div>
-
-            <!-- Aviso añadido justo antes de añadir al carrito -->
-            <div style="background: #fff3cd; color: #856404; padding: 10px; font-size: 12px; border-radius: 4px; margin-bottom: 15px; border: 1px solid #ffeeba;">
-                ⚠️ <strong>Aviso importante:</strong> Solo se permite tramitar un formato por cada pedido. Si deseas seleccionar otro pack, se actualizará automáticamente en tu carrito.
-            </div>
             
-            <button onclick="agregarAlCarrito()" style="width: 100%; background: #000; color: #fff; border: none; padding: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;">Añadir al carrito</button>
+            <button onclick="agregarAlCarrito()" style="width: 100%; background: #000; color: #fff; border: none; padding: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; margin-bottom: 15px;">Añadir al carrito</button>
+
+            <!-- Aviso colocado justo debajo del botón de añadir -->
+            <div style="background: #fff3cd; color: #856404; padding: 10px; font-size: 11px; border-radius: 4px; border: 1px solid #ffeeba; line-height: 1.4;">
+                ⚠️ <strong>Aviso:</strong> Solo se permite tramitar un formato por pedido. Si seleccionas otro, se actualizará automáticamente.
+            </div>
         </div>
     </div>
 
@@ -162,7 +157,7 @@
             <h2 style="margin-top:0;">Tu Carrito</h2>
             
             <div style="background: #fff3cd; color: #856404; padding: 10px; font-size: 12px; border-radius: 4px; margin-bottom: 15px; border: 1px solid #ffeeba;">
-                ⚠️ <strong>Aviso importante:</strong> Solo se permite tramitar un formato por cada pedido. Si deseas seleccionar otro pack, se actualizará automáticamente en tu carrito.
+                ⚠️ Se permite un único formato por cada trámite de pedido.
             </div>
 
             <div id="lista-carrito" style="max-height: 200px; overflow-y: auto; margin-bottom: 20px;">
