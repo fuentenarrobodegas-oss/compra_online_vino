@@ -3,7 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bodegas Fuentenarro</title>
+    
+    <!-- SEO Principal -->
+    <title>Bodegas Fuentenarro | Comprar Vino Online D.O. Ribera de Duero</title>
+    <meta name="description" content="Compra de vino online directa desde Bodegas Fuentenarro (D.O. Ribera de Duero). Pide nuestro tinto 4 meses en barrica por botellas o cajas con envío rápido a domicilio.">
+    <meta name="keywords" content="comprar vino online, compra de vino, Bodegas Fuentenarro, Fuentenarro 4 meses en barrica, vino Ribera de Duero online, vino tinto barrica, comprar vino directo bodega">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://fuentenarrobodegas-oss.github.io/compra_online_vino/">
+
+    <!-- Open Graph (Para compartir en WhatsApp, Instagram, Facebook) -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Bodegas Fuentenarro | Compra de Vino Online Ribera de Duero">
+    <meta property="og:description" content="Compra directa de vino tinto Fuentenarro 4 meses en barrica (D.O. Ribera de Duero). Envío a domicilio por botellas o packs.">
+    <meta property="og:url" content="https://fuentenarrobodegas-oss.github.io/compra_online_vino/">
+    <meta property="og:image" content="https://fuentenarrobodegas-oss.github.io/compra_online_vino/4_meses_barrica.jpg">
+    <meta property="og:locale" content="es_ES">
+
+    <!-- Datos Estructurados Schema.org para Google (Producto y Bodega) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org/",
+      "@type": "Product",
+      "name": "Vino Tinto Fuentenarro 4 meses en barrica - D.O. Ribera de Duero",
+      "image": "https://fuentenarrobodegas-oss.github.io/compra_online_vino/4_meses_barrica.jpg",
+      "description": "Vino tinto con cuerpo, notas de roble y frutos rojos maduros. Compra online directa desde Bodegas Fuentenarro.",
+      "brand": {
+        "@type": "Brand",
+        "name": "Bodegas Fuentenarro"
+      },
+      "offers": {
+        "@type": "AggregateOffer",
+        "url": "https://fuentenarrobodegas-oss.github.io/compra_online_vino/",
+        "priceCurrency": "EUR",
+        "lowPrice": "4.50",
+        "highPrice": "108.00",
+        "offerCount": "4",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+    </script>
     
     <!-- Cargamos la librería de Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -20,13 +58,26 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 40px;
+            margin-bottom: 25px;
             border-bottom: 1px solid #e5e5e5;
             padding-bottom: 20px;
             flex-wrap: wrap;
             gap: 15px;
         }
         h1 { font-size: 24px; text-transform: uppercase; letter-spacing: 2px; margin: 0; }
+        .seo-intro {
+            margin-bottom: 30px;
+            color: #555;
+            font-size: 14px;
+            line-height: 1.5;
+            max-width: 800px;
+        }
+        .seo-intro h2 {
+            font-size: 16px;
+            color: #222;
+            margin: 0 0 6px 0;
+            font-weight: 600;
+        }
         .grid-productos {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -90,6 +141,13 @@
             cursor: pointer;
             font-size: 18px;
         }
+        footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e5e5;
+            font-size: 12px;
+            color: #777;
+        }
     </style>
 </head>
 <body>
@@ -107,11 +165,17 @@
         </div>
     </header>
 
+    <!-- Bloque semántico SEO visible y discreto -->
+    <section class="seo-intro">
+        <h2>Compra de vino online directa de bodega · D.O. Ribera de Duero</h2>
+        <p style="margin:0;">Adquiere nuestro vino tinto <strong>Fuentenarro 4 meses en barrica</strong> en formato botella individual o cajas ahorro con envío directo a domicilio.</p>
+    </section>
+
     <main class="grid-productos">
         <!-- Único producto activo: Fuentenarro 4 meses en barrica -->
-        <div class="producto-card" onclick="abrirModal('Fuentenarro 4 meses en barrica', 'Un vino con cuerpo, notas de roble y frutos rojos maduros.')">
+        <article class="producto-card" onclick="abrirModal('Fuentenarro 4 meses en barrica', 'Un vino con cuerpo, notas de roble y frutos rojos maduros.')">
             <div class="producto-imagen">
-                <img src="4_meses_barrica.jpg" alt="Vino tinto" style="width: 100%; height: 100%; object-fit: cover;">
+                <img src="4_meses_barrica.jpg" alt="Botella de vino tinto Bodegas Fuentenarro 4 meses en barrica D.O. Ribera de Duero" style="width: 100%; height: 100%; object-fit: cover;">
             </div>
             <div class="producto-info">
                 <div>
@@ -120,8 +184,12 @@
                 </div>
                 <span class="producto-precio">Desde 4,50 €</span>
             </div>
-        </div>
+        </article>
     </main>
+
+    <footer>
+        <p><strong>Bodegas Fuentenarro</strong> · Venta directa de vino online · Contacto: 947 54 20 92 · bodegas@fuentenarro.com</p>
+    </footer>
 
     <!-- Modal de Producto con selector de Packs -->
     <div id="modal">
@@ -143,7 +211,6 @@
             
             <button onclick="agregarAlCarrito()" style="width: 100%; background: #000; color: #fff; border: none; padding: 12px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; margin-bottom: 15px;">Añadir al carrito</button>
 
-            <!-- Aviso colocado justo debajo del botón de añadir -->
             <div style="background: #fff3cd; color: #856404; padding: 10px; font-size: 11px; border-radius: 4px; border: 1px solid #ffeeba; line-height: 1.4;">
                 ⚠️ <strong>Aviso:</strong> Solo se permite tramitar un formato por pedido. Si seleccionas otro, se actualizará automáticamente.
             </div>
