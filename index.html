@@ -1,154 +1,861 @@
-// Edge Function: crear-checkout
-// Recibe la cesta y los datos de envío, guarda el pedido en Supabase y crea
-// una sesión de Stripe Checkout con TODAS las líneas y el total correcto.
-//
-// Despliegue:  supabase functions deploy crear-checkout --no-verify-jwt
-// Secretos:    supabase secrets set STRIPE_SECRET_KEY=sk_live_... SITE_URL=https://fuentenarrobodegas-oss.github.io/compra_online_vino/
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-import Stripe from "npm:stripe@17";
-import { createClient } from "npm:@supabase/supabase-js@2";
+    <!-- SEO Principal -->
+    <title>Bodegas Fuentenarro | Comprar Vino Online D.O. Ribera del Duero</title>
+    <meta name="google-site-verification" content="CRc3HWFjJDOPmlGUEWcMF3u8J-XyBapqcZVkWO82s-U" />
+    <meta name="msvalidate.01" content="44BE2DB94C810F45CBE3D15552B1FC35" />
+    <meta name="description" content="Compra de vino online directa desde Bodegas Fuentenarro (D.O. Ribera del Duero). Pide nuestro tinto 4 meses en barrica por botellas o cajas de 6 con envío a domicilio.">
+    <meta name="keywords" content="comprar vino online, compra de vino, Bodegas Fuentenarro, Fuentenarro 4 meses en barrica, vino Ribera del Duero online, vino tinto barrica, comprar vino directo bodega">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://fuentenarrobodegas-oss.github.io/compra_online_vino/">
 
-// ---------------------------------------------------------------------
-// CATÁLOGO OFICIAL (aquí manda el precio real; el del navegador es solo visual)
-// Los ids deben coincidir con los de VINOS en index.html
-// ---------------------------------------------------------------------
-const CATALOGO: Record<string, { nombre: string; precio_cent: number; botellas: number }> = {
-  "4meses-botella": { nombre: "Fuentenarro 4 meses en barrica · Botella 75 cl", precio_cent: 450, botellas: 1 },
-  "4meses-caja6": { nombre: "Fuentenarro 4 meses en barrica · Caja de 6 botellas", precio_cent: 2700, botellas: 6 },
-};
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Bodegas Fuentenarro | Compra de Vino Online Ribera del Duero">
+    <meta property="og:description" content="Compra directa de vino tinto Fuentenarro 4 meses en barrica (D.O. Ribera del Duero). Envío a domicilio por botellas o cajas.">
+    <meta property="og:url" content="https://fuentenarrobodegas-oss.github.io/compra_online_vino/">
+    <meta property="og:image" content="https://fuentenarrobodegas-oss.github.io/compra_online_vino/4_meses_barrica.jpg">
+    <meta property="og:locale" content="es_ES">
 
-// Gastos de envío. Deben coincidir con GASTOS_ENVIO y ENVIO_GRATIS_DESDE_BOTELLAS de index.html
-const GASTOS_ENVIO_CENT = 300;          // 3 € si el pedido tiene menos de una caja
-const ENVIO_GRATIS_DESDE_BOTELLAS = 6;  // a partir de 6 botellas, envío gratis
-
-const SITE_URL = Deno.env.get("SITE_URL") ?? "https://fuentenarrobodegas-oss.github.io/compra_online_vino/";
-
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
-  httpClient: Stripe.createFetchHttpClient(),
-});
-
-const supabase = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  { auth: { persistSession: false } },
-);
-
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const json = (cuerpo: unknown, status = 200) =>
-  new Response(JSON.stringify(cuerpo), { status, headers: { ...cors, "Content-Type": "application/json" } });
-
-class ErrorUsuario extends Error {}
-
-const texto = (v: unknown, max: number, obligatorio = true) => {
-  const s = typeof v === "string" ? v.trim().slice(0, max) : "";
-  if (obligatorio && !s) throw new ErrorUsuario("Faltan datos de envío. Revisa el formulario.");
-  return s;
-};
-
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  if (req.method !== "POST") return json({ error: "Método no permitido" }, 405);
-
-  try {
-    const { items, envio } = await req.json();
-
-    // ---- 1. Validar la cesta contra el catálogo ----
-    if (!Array.isArray(items) || items.length === 0 || items.length > 20) {
-      throw new ErrorUsuario("La cesta está vacía.");
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org/",
+      "@type": "Product",
+      "name": "Vino Tinto Fuentenarro 4 meses en barrica - D.O. Ribera del Duero",
+      "image": "https://fuentenarrobodegas-oss.github.io/compra_online_vino/4_meses_barrica.jpg",
+      "description": "Vino tinto con cuerpo, notas de roble y frutos rojos maduros. Compra online directa desde Bodegas Fuentenarro.",
+      "brand": { "@type": "Brand", "name": "Bodegas Fuentenarro" },
+      "offers": {
+        "@type": "AggregateOffer",
+        "url": "https://fuentenarrobodegas-oss.github.io/compra_online_vino/",
+        "priceCurrency": "EUR",
+        "lowPrice": "4.50",
+        "highPrice": "27.00",
+        "offerCount": "2",
+        "availability": "https://schema.org/InStock"
+      }
     }
-    const lineas = items.map((it: { id: string; cantidad: number }) => {
-      const prod = CATALOGO[it?.id];
-      const cantidad = Math.floor(Number(it?.cantidad));
-      if (!prod) throw new ErrorUsuario("Hay un producto en la cesta que ya no está disponible. Vacía la cesta y vuelve a añadirlo.");
-      if (!(cantidad >= 1 && cantidad <= 99)) throw new ErrorUsuario("Cantidad no válida.");
-      return { id: it.id, nombre: prod.nombre, precio_cent: prod.precio_cent, cantidad, botellas: prod.botellas * cantidad };
-    });
+    </script>
 
-    const subtotal = lineas.reduce((a, l) => a + l.precio_cent * l.cantidad, 0);
-    const botellas = lineas.reduce((a, l) => a + l.botellas, 0);
-    const envioCent = botellas < ENVIO_GRATIS_DESDE_BOTELLAS ? GASTOS_ENVIO_CENT : 0;
-    const total = subtotal + envioCent;
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
 
-    // ---- 2. Validar datos de envío ----
-    const datos = {
-      nombre: texto(envio?.nombre, 120),
-      email: texto(envio?.email, 160),
-      telefono: texto(envio?.telefono, 16),
-      direccion: texto(envio?.direccion, 200),
-      cp: texto(envio?.cp, 5),
-      ciudad: texto(envio?.ciudad, 80),
-      provincia: texto(envio?.provincia, 80),
-      notas: texto(envio?.notas, 400, false),
-    };
-    if (!/^\S+@\S+\.\S+$/.test(datos.email)) throw new ErrorUsuario("El correo electrónico no es válido.");
-    if (!/^\d{5}$/.test(datos.cp)) throw new ErrorUsuario("El código postal debe tener 5 cifras.");
-    if (!/^[0-9+ ]{9,16}$/.test(datos.telefono)) throw new ErrorUsuario("El teléfono no es válido.");
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    // ---- 3. ¿Cliente con cuenta? (si no, compra como invitado) ----
-    let userId: string | null = null;
-    const token = req.headers.get("Authorization")?.replace("Bearer ", "");
-    if (token && token.split(".").length === 3) {
-      const { data } = await supabase.auth.getUser(token);
-      userId = data?.user?.id ?? null;
-    }
+    <style>
+        :root {
+            --granate: #6b1e2e;
+            --granate-osc: #3f111b;
+            --oro: #b08d57;
+            --oro-claro: #d8c3a0;
+            --crema: #f6f0e6;
+            --papel: #fbf8f3;
+            --tinta: #2a2422;
+            --gris: #7a706b;
+            --linea: #e6ddd0;
+            --ok: #3f6b3a;
+            --serif: "Cormorant Garamond", Georgia, serif;
+            --sans: "Lato", -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { margin: 0; font-family: var(--sans); font-weight: 400; color: var(--tinta); background: var(--papel); line-height: 1.6; }
+        img { max-width: 100%; display: block; }
+        a { color: var(--granate); }
+        button { font-family: inherit; }
+        .contenedor { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
 
-    // ---- 4. Guardar el pedido como "pendiente de pago" ----
-    const { data: pedido, error: errPedido } = await supabase
-      .from("pedidos")
-      .insert({
-        ...datos,
-        user_id: userId,
-        items: lineas.map(({ id, nombre, precio_cent, cantidad }) => ({ id, nombre, precio_cent, cantidad })),
-        botellas,
-        envio_cent: envioCent,
-        total_cent: total,
-      })
-      .select("id, numero")
-      .single();
-    if (errPedido) throw errPedido;
+        /* ---------- Barra superior y cabecera ---------- */
+        .barra-top { background: var(--granate-osc); color: var(--oro-claro); font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; text-align: center; padding: 8px 12px; }
+        header.cabecera { background: var(--papel); border-bottom: 1px solid var(--linea); position: sticky; top: 0; z-index: 50; }
+        .cabecera .contenedor { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 14px; padding-bottom: 14px; }
+        .logo { text-decoration: none; color: var(--tinta); display: flex; flex-direction: column; line-height: 1.1; }
+        .logo strong { font-family: var(--serif); font-weight: 500; font-size: 30px; letter-spacing: 6px; text-transform: uppercase; color: var(--granate); }
+        .logo span { font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--gris); margin-top: 4px; }
+        nav.menu { display: flex; gap: 28px; }
+        nav.menu a { text-decoration: none; color: var(--tinta); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; }
+        nav.menu a:hover { color: var(--granate); }
+        .acciones { display: flex; gap: 10px; align-items: center; }
+        .btn-icono { background: none; border: 1px solid var(--linea); color: var(--tinta); padding: 9px 14px; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-icono:hover { border-color: var(--granate); color: var(--granate); }
+        .contador { background: var(--granate); color: #fff; border-radius: 999px; min-width: 20px; height: 20px; font-size: 11px; display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; letter-spacing: 0; }
 
-    // ---- 5. Crear la sesión de Stripe con todas las líneas ----
-    const resumenEnvio = `${datos.nombre} · ${datos.telefono} · ${datos.direccion}, ${datos.cp} ${datos.ciudad} (${datos.provincia})`;
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      locale: "es",
-      customer_email: datos.email,
-      line_items: [
-        ...lineas.map((l) => ({
-          quantity: l.cantidad,
-          price_data: {
-            currency: "eur",
-            unit_amount: l.precio_cent,
-            product_data: { name: l.nombre },
-          },
-        })),
-        ...(envioCent > 0
-          ? [{
-            quantity: 1,
-            price_data: { currency: "eur", unit_amount: envioCent, product_data: { name: "Gastos de envío" } },
-          }]
-          : []),
-      ],
-      metadata: { pedido_id: pedido.id, numero: String(pedido.numero), envio: resumenEnvio.slice(0, 480) },
-      payment_intent_data: {
-        description: `Pedido nº ${pedido.numero} · ${botellas} botellas`,
-        metadata: { pedido_id: pedido.id, numero: String(pedido.numero), envio: resumenEnvio.slice(0, 480) },
-      },
-      success_url: `${SITE_URL}?pedido=ok&n=${pedido.numero}`,
-      cancel_url: `${SITE_URL}?pedido=cancelado`,
-    });
+        /* ---------- Hero ---------- */
+        .hero { background: linear-gradient(rgba(40,10,16,.72), rgba(40,10,16,.78)), url("4_meses_barrica.jpg") center/cover; color: #fff; text-align: center; padding: 90px 24px 100px; }
+        .eyebrow { font-size: 12px; letter-spacing: 4px; text-transform: uppercase; color: var(--oro); }
+        .hero .eyebrow { color: var(--oro-claro); }
+        .hero h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 5vw, 58px); line-height: 1.1; margin: 14px auto 18px; max-width: 760px; }
+        .hero p { max-width: 560px; margin: 0 auto 32px; font-weight: 300; font-size: 17px; color: #eadfd2; }
+        .separador { width: 60px; height: 1px; background: var(--oro); margin: 18px auto; border: 0; }
 
-    await supabase.from("pedidos").update({ stripe_session_id: session.id }).eq("id", pedido.id);
+        /* ---------- Botones ---------- */
+        .btn { display: inline-flex; justify-content: center; align-items: center; gap: 8px; border: 1px solid transparent; padding: 14px 30px; font-size: 12px; letter-spacing: 2.5px; text-transform: uppercase; cursor: pointer; text-decoration: none; transition: background .2s, color .2s, border-color .2s; }
+        .btn-primario { background: var(--granate); color: #fff; }
+        .btn-primario:hover { background: var(--granate-osc); }
+        .btn-primario:disabled { opacity: .6; cursor: wait; }
+        .btn-claro { background: transparent; color: #fff; border-color: var(--oro-claro); }
+        .btn-claro:hover { background: var(--oro); border-color: var(--oro); }
+        .btn-borde { background: transparent; color: var(--granate); border-color: var(--granate); }
+        .btn-borde:hover { background: var(--granate); color: #fff; }
+        .btn-bloque { width: 100%; }
+        .enlace { background: none; border: 0; color: var(--granate); text-decoration: underline; cursor: pointer; padding: 0; font-size: inherit; }
 
-    return json({ url: session.url });
-  } catch (e) {
-    if (e instanceof ErrorUsuario) return json({ error: e.message }, 400);
-    console.error(e);
-    return json({ error: "Error interno al crear el pago. Inténtalo de nuevo en unos minutos." }, 500);
-  }
-});
+        /* ---------- Secciones ---------- */
+        section { padding: 80px 0; }
+        .titulo-seccion { text-align: center; margin-bottom: 48px; }
+        .titulo-seccion h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(30px, 3.6vw, 42px); margin: 8px 0 0; }
+
+        /* ---------- Ficha de vino ---------- */
+        .ficha { display: grid; grid-template-columns: minmax(260px, 420px) 1fr; gap: 56px; align-items: center; background: #fff; border: 1px solid var(--linea); padding: 40px; margin-bottom: 32px; }
+        .ficha-img { background: var(--crema); aspect-ratio: 3/4; overflow: hidden; }
+        .ficha-img img { width: 100%; height: 100%; object-fit: cover; }
+        .ficha h3 { font-family: var(--serif); font-weight: 500; font-size: 36px; line-height: 1.15; margin: 6px 0 14px; }
+        .ficha-desc { color: var(--gris); margin: 0 0 22px; }
+        .notas { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 0 0 28px; }
+        .notas li { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; border: 1px solid var(--linea); padding: 5px 10px; color: var(--gris); }
+        .formatos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 22px; }
+        .formato input { position: absolute; opacity: 0; pointer-events: none; }
+        .formato-box { display: flex; flex-direction: column; border: 1px solid var(--linea); padding: 16px 18px; cursor: pointer; transition: border-color .2s, background .2s; height: 100%; }
+        .formato-box strong { font-weight: 700; font-size: 14px; }
+        .formato-box small { color: var(--gris); font-size: 12px; }
+        .formato-box em { font-style: normal; font-family: var(--serif); font-size: 26px; color: var(--granate); margin-top: 6px; }
+        .formato input:checked + .formato-box { border-color: var(--granate); background: #fbf3f1; box-shadow: inset 0 0 0 1px var(--granate); }
+        .formato input:focus-visible + .formato-box { outline: 2px solid var(--oro); outline-offset: 2px; }
+        .comprar { display: flex; gap: 12px; flex-wrap: wrap; }
+        .comprar .btn { flex: 1; min-width: 200px; }
+
+        .stepper { display: inline-flex; border: 1px solid var(--linea); background: #fff; }
+        .stepper button { width: 40px; border: 0; background: none; font-size: 18px; cursor: pointer; color: var(--tinta); }
+        .stepper button:hover { color: var(--granate); background: var(--crema); }
+        .stepper input { width: 46px; border: 0; text-align: center; font-size: 15px; font-family: inherit; -moz-appearance: textfield; }
+        .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .stepper.peq button { width: 30px; font-size: 15px; }
+        .stepper.peq input { width: 34px; font-size: 13px; }
+
+        /* ---------- Ventajas ---------- */
+        .ventajas { background: var(--crema); padding: 56px 0; }
+        .ventajas .contenedor { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; text-align: center; }
+        .ventajas h4 { font-family: var(--serif); font-weight: 500; font-size: 22px; margin: 8px 0 6px; }
+        .ventajas p { margin: 0; color: var(--gris); font-size: 14px; }
+        .ventajas .ico { color: var(--oro); font-size: 26px; }
+
+        /* ---------- Pie ---------- */
+        footer { background: var(--granate-osc); color: #d9cbbb; padding: 56px 0 28px; font-size: 14px; }
+        footer .contenedor { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 32px; }
+        footer h5 { font-family: var(--serif); font-weight: 400; color: #fff; font-size: 20px; margin: 0 0 12px; }
+        footer a { color: var(--oro-claro); text-decoration: none; }
+        footer p { margin: 0 0 6px; }
+        .legal { grid-column: 1 / -1; border-top: 1px solid rgba(255,255,255,.12); padding-top: 20px; margin-top: 12px; font-size: 12px; color: #a99584; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+
+        /* ---------- Cesta lateral ---------- */
+        .velo { position: fixed; inset: 0; background: rgba(30,12,15,.45); opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 90; }
+        .velo.abierto { opacity: 1; pointer-events: auto; }
+        .cesta { position: fixed; top: 0; right: 0; height: 100%; width: min(420px, 100%); background: var(--papel); z-index: 100; transform: translateX(100%); transition: transform .3s ease; display: flex; flex-direction: column; }
+        .cesta.abierta { transform: none; box-shadow: -10px 0 30px rgba(0,0,0,.12); }
+        .cesta-cab { display: flex; justify-content: space-between; align-items: center; padding: 22px 24px; border-bottom: 1px solid var(--linea); }
+        .cesta-cab h3 { font-family: var(--serif); font-weight: 500; font-size: 26px; margin: 0; }
+        .cerrar { background: none; border: 0; font-size: 26px; cursor: pointer; color: var(--gris); line-height: 1; }
+        .cesta-lineas { flex: 1; overflow-y: auto; padding: 8px 24px; }
+        .linea { display: grid; grid-template-columns: 64px 1fr auto; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--linea); align-items: center; }
+        .linea img { width: 64px; height: 80px; object-fit: cover; background: var(--crema); }
+        .linea h4 { margin: 0; font-size: 14px; font-weight: 700; }
+        .linea small { color: var(--gris); display: block; margin-bottom: 8px; }
+        .linea .precio { font-family: var(--serif); font-size: 20px; text-align: right; }
+        .linea .quitar { font-size: 11px; color: var(--gris); display: block; margin-top: 6px; text-align: right; }
+        .cesta-vacia { text-align: center; color: var(--gris); padding: 60px 10px; }
+        .cesta-pie { padding: 20px 24px 24px; border-top: 1px solid var(--linea); background: #fff; }
+        .fila-total { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px; color: var(--gris); }
+        .fila-total.grande { color: var(--tinta); font-size: 16px; font-weight: 700; margin: 10px 0 16px; }
+        .fila-total.grande span:last-child { font-family: var(--serif); font-size: 26px; font-weight: 500; }
+
+        /* ---------- Vistas: checkout / confirmación ---------- */
+        .vista { display: none; }
+        .vista.activa { display: block; }
+        .checkout { display: grid; grid-template-columns: 1fr 380px; gap: 40px; align-items: start; }
+        .panel { background: #fff; border: 1px solid var(--linea); padding: 32px; }
+        .panel h3 { font-family: var(--serif); font-weight: 500; font-size: 26px; margin: 0 0 6px; }
+        .aviso-cuenta { background: var(--crema); padding: 14px 16px; font-size: 14px; margin: 14px 0 24px; border-left: 3px solid var(--oro); }
+        .campos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .campo { display: flex; flex-direction: column; gap: 6px; }
+        .campo.ancho { grid-column: 1 / -1; }
+        .campo label { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gris); }
+        .campo input, .campo textarea, .campo select { border: 1px solid var(--linea); background: var(--papel); padding: 12px 14px; font-size: 15px; font-family: inherit; color: var(--tinta); border-radius: 0; }
+        .campo input:focus, .campo textarea:focus { outline: none; border-color: var(--granate); background: #fff; }
+        .check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; margin-top: 16px; }
+        .check input { margin-top: 4px; accent-color: var(--granate); }
+        .resumen-linea { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; padding: 10px 0; border-bottom: 1px solid var(--linea); }
+        .resumen-linea span:first-child { color: var(--tinta); }
+        .seguro { font-size: 12px; color: var(--gris); text-align: center; margin-top: 12px; }
+        .error { color: #a3172f; font-size: 14px; margin-top: 12px; min-height: 1em; }
+        .volver { display: inline-block; margin-bottom: 20px; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; }
+        .confirmacion { text-align: center; max-width: 620px; margin: 0 auto; }
+        .confirmacion h2 { font-family: var(--serif); font-weight: 400; font-size: 44px; margin: 10px 0; }
+
+        /* ---------- Modal cuenta ---------- */
+        .modal { position: fixed; inset: 0; display: none; align-items: flex-start; justify-content: center; z-index: 110; padding: 60px 16px; overflow-y: auto; }
+        .modal.abierto { display: flex; }
+        .modal-caja { background: var(--papel); width: min(560px, 100%); padding: 36px; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+        .modal-caja .cerrar { position: absolute; top: 14px; right: 18px; }
+        .pestanas { display: flex; border-bottom: 1px solid var(--linea); margin-bottom: 22px; }
+        .pestanas button { flex: 1; background: none; border: 0; padding: 12px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; color: var(--gris); border-bottom: 2px solid transparent; }
+        .pestanas button.activa { color: var(--granate); border-bottom-color: var(--granate); }
+        .btn-google { width: 100%; background: #fff; border: 1px solid var(--linea); padding: 12px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-google:hover { border-color: var(--tinta); }
+        .o { text-align: center; color: var(--gris); font-size: 12px; letter-spacing: 2px; margin: 18px 0; text-transform: uppercase; }
+        .pedido-item { border: 1px solid var(--linea); background: #fff; padding: 14px 16px; margin-bottom: 10px; font-size: 14px; }
+        .pedido-item .cab { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 4px; }
+        .estado { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; background: var(--crema); color: var(--granate); font-weight: 700; }
+
+        /* ---------- Toast ---------- */
+        .toast { position: fixed; bottom: 24px; left: 50%; transform: translate(-50%, 140%); background: var(--tinta); color: #fff; padding: 14px 22px; font-size: 14px; z-index: 200; transition: transform .3s; }
+        .toast.visible { transform: translate(-50%, 0); }
+
+        /* ---------- Responsive ---------- */
+        @media (max-width: 900px) {
+            nav.menu { display: none; }
+            .ficha { grid-template-columns: 1fr; gap: 28px; padding: 24px; }
+            .ficha-img { aspect-ratio: 4/3; }
+            .checkout { grid-template-columns: 1fr; }
+            footer .contenedor { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 600px) {
+            .logo strong { font-size: 22px; letter-spacing: 4px; }
+            .logo span { letter-spacing: 2px; }
+            .btn-icono .txt { display: none; }
+            .ventajas .contenedor { grid-template-columns: 1fr; }
+            .formatos, .campos { grid-template-columns: 1fr; }
+            .panel, .modal-caja { padding: 22px; }
+            section { padding: 56px 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="barra-top">Venta directa de bodega · Envío a domicilio · D.O. Ribera del Duero</div>
+
+    <header class="cabecera">
+        <div class="contenedor">
+            <a class="logo" href="#" onclick="mostrarVista('tienda'); return false;">
+                <strong>Fuentenarro</strong>
+                <span>Bodegas · Ribera del Duero</span>
+            </a>
+            <nav class="menu" aria-label="Principal">
+                <a href="#vinos" onclick="mostrarVista('tienda')">Nuestros vinos</a>
+                <a href="https://fuentenarro.com/" target="_blank" rel="noopener">La bodega</a>
+                <a href="#contacto">Contacto</a>
+            </nav>
+            <div class="acciones">
+                <button class="btn-icono" onclick="abrirCuenta()" aria-label="Mi cuenta">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+                    <span class="txt" id="txt-cuenta">Entrar</span>
+                </button>
+                <button class="btn-icono" onclick="abrirCesta()" aria-label="Cesta">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 8h14l-1.5 12h-11z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+                    <span class="txt">Cesta</span>
+                    <span class="contador" id="contador-cesta">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ================= VISTA TIENDA ================= -->
+    <div class="vista activa" id="vista-tienda">
+        <div class="hero">
+            <span class="eyebrow">Compra online directa de bodega</span>
+            <h1>Nuestro vino, de la bodega a tu mesa</h1>
+            <hr class="separador">
+            <p>Vinos de viñedo propio en la Ribera del Duero, elaborados respetando la esencia de cada parcela y criados en nuestra bodega subterránea.</p>
+            <a href="#vinos" class="btn btn-claro">Ver vinos</a>
+        </div>
+
+        <section id="vinos">
+            <div class="contenedor">
+                <div class="titulo-seccion">
+                    <span class="eyebrow">Tienda online</span>
+                    <h2>Nuestros vinos</h2>
+                    <hr class="separador">
+                </div>
+                <div id="lista-vinos"></div>
+            </div>
+        </section>
+
+        <div class="ventajas">
+            <div class="contenedor">
+                <div><div class="ico">❦</div><h4>Directo de bodega</h4><p>Sin intermediarios, desde nuestra bodega familiar.</p></div>
+                <div><div class="ico">✦</div><h4>Pago seguro</h4><p>Pagas con tarjeta a través de Stripe, con cifrado bancario.</p></div>
+                <div><div class="ico">❧</div><h4>Envío a domicilio</h4><p>Gratis a partir de 6 botellas. Pedidos menores: 3 €.</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= VISTA CHECKOUT ================= -->
+    <div class="vista" id="vista-checkout">
+        <section>
+            <div class="contenedor">
+                <a href="#" class="volver" onclick="mostrarVista('tienda'); return false;">← Seguir comprando</a>
+                <div class="checkout">
+                    <form class="panel" id="form-checkout" onsubmit="pagar(event)" novalidate>
+                        <h3>Datos de envío</h3>
+                        <div class="aviso-cuenta" id="aviso-cuenta"></div>
+                        <div class="campos">
+                            <div class="campo"><label for="c-nombre">Nombre y apellidos</label><input id="c-nombre" name="nombre" required autocomplete="name" maxlength="120"></div>
+                            <div class="campo"><label for="c-telefono">Teléfono</label><input id="c-telefono" name="telefono" type="tel" required autocomplete="tel" pattern="[0-9+ ]{9,16}" maxlength="16"></div>
+                            <div class="campo ancho"><label for="c-email">Correo electrónico</label><input id="c-email" name="email" type="email" required autocomplete="email" maxlength="160"></div>
+                            <div class="campo ancho"><label for="c-direccion">Dirección (calle, número, piso)</label><input id="c-direccion" name="direccion" required autocomplete="street-address" maxlength="200"></div>
+                            <div class="campo"><label for="c-cp">Código postal</label><input id="c-cp" name="cp" required inputmode="numeric" pattern="[0-9]{5}" maxlength="5" autocomplete="postal-code"></div>
+                            <div class="campo"><label for="c-ciudad">Localidad</label><input id="c-ciudad" name="ciudad" required autocomplete="address-level2" maxlength="80"></div>
+                            <div class="campo ancho"><label for="c-provincia">Provincia</label><input id="c-provincia" name="provincia" required autocomplete="address-level1" maxlength="80"></div>
+                            <div class="campo ancho"><label for="c-notas">Notas para la entrega (opcional)</label><textarea id="c-notas" name="notas" rows="2" maxlength="400" placeholder="Horario, portal, a quién dejarlo…"></textarea></div>
+                        </div>
+                        <label class="check" id="fila-guardar"><input type="checkbox" name="guardar" checked> Guardar estos datos en mi cuenta para el próximo pedido</label>
+                        <label class="check"><input type="checkbox" name="mayor18" required> Confirmo que soy mayor de 18 años.</label>
+                        <div class="error" id="error-checkout" role="alert"></div>
+                    </form>
+
+                    <aside class="panel">
+                        <h3>Tu pedido</h3>
+                        <div id="resumen-lineas"></div>
+                        <div style="margin-top: 14px;">
+                            <div class="fila-total"><span>Subtotal</span><span id="res-subtotal"></span></div>
+                            <div class="fila-total"><span>Envío</span><span id="res-envio"></span></div>
+                            <div class="fila-total grande"><span>Total</span><span id="res-total"></span></div>
+                        </div>
+                        <button class="btn btn-primario btn-bloque" id="btn-pagar" type="submit" form="form-checkout">Pagar con tarjeta</button>
+                        <p class="seguro">🔒 Te llevamos a la pasarela segura de Stripe solo para introducir la tarjeta.</p>
+                    </aside>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- ================= VISTA CONFIRMACIÓN ================= -->
+    <div class="vista" id="vista-confirmacion">
+        <section>
+            <div class="contenedor confirmacion">
+                <span class="eyebrow">Pedido recibido</span>
+                <h2>¡Gracias por tu compra!</h2>
+                <hr class="separador">
+                <p id="txt-confirmacion">Hemos recibido tu pedido. Te enviaremos un correo con el justificante de pago y te avisaremos cuando salga de la bodega.</p>
+                <p style="margin-top: 30px;"><a href="#" class="btn btn-borde" onclick="mostrarVista('tienda'); return false;">Volver a la tienda</a></p>
+            </div>
+        </section>
+    </div>
+
+    <footer id="contacto">
+        <div class="contenedor">
+            <div>
+                <h5>Bodegas Fuentenarro</h5>
+                <p>Venta directa de vino online · D.O. Ribera del Duero</p>
+                <p>Viñedos propios y bodega familiar.</p>
+            </div>
+            <div>
+                <h5>Contacto</h5>
+                <p><a href="tel:+34947542092">947 54 20 92</a></p>
+                <p><a href="mailto:bodegas@fuentenarro.com">bodegas@fuentenarro.com</a></p>
+            </div>
+            <div>
+                <h5>La bodega</h5>
+                <p><a href="https://fuentenarro.com/" target="_blank" rel="noopener">fuentenarro.com</a></p>
+            </div>
+            <div class="legal">
+                <span>Venta exclusiva a mayores de 18 años. Disfruta del vino con moderación.</span>
+                <span>© <span id="anio"></span> Bodegas Fuentenarro</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ================= CESTA LATERAL ================= -->
+    <div class="velo" id="velo" onclick="cerrarTodo()"></div>
+    <aside class="cesta" id="cesta" aria-label="Cesta de la compra">
+        <div class="cesta-cab">
+            <h3>Tu cesta</h3>
+            <button class="cerrar" onclick="cerrarCesta()" aria-label="Cerrar">&times;</button>
+        </div>
+        <div class="cesta-lineas" id="cesta-lineas"></div>
+        <div class="cesta-pie" id="cesta-pie">
+            <div class="fila-total"><span id="cesta-botellas"></span><span></span></div>
+            <div class="fila-total"><span>Subtotal</span><span id="cesta-subtotal"></span></div>
+            <div class="fila-total"><span>Envío</span><span id="cesta-envio"></span></div>
+            <div class="fila-total grande"><span>Total</span><span id="cesta-total"></span></div>
+            <button class="btn btn-primario btn-bloque" onclick="irACheckout()">Finalizar pedido</button>
+        </div>
+    </aside>
+
+    <!-- ================= MODAL CUENTA ================= -->
+    <div class="modal" id="modal-cuenta">
+        <div class="modal-caja">
+            <button class="cerrar" onclick="cerrarTodo()" aria-label="Cerrar">&times;</button>
+            <div id="cuenta-contenido"></div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        /* =====================================================================
+           CONFIGURACIÓN
+           ===================================================================== */
+        const SUPABASE_URL = 'https://wifukeifpabvxuiwpeao.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_kzSSg5V2d2YVdvSpfLzKlg_ZWeJUPr2';
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Gastos de envío. DEBEN coincidir con los de la Edge Function "crear-checkout".
+        const GASTOS_ENVIO = 3;                 // € si el pedido tiene menos de una caja
+        const ENVIO_GRATIS_DESDE_BOTELLAS = 6;  // a partir de 6 botellas, envío gratis
+
+        // Catálogo. Los precios de aquí son solo para mostrar: el cobro real lo calcula la
+        // Edge Function con su propio catálogo (así nadie puede manipular el precio desde el navegador).
+        // Para añadir Crianza, Reserva… copia un bloque, cambia los ids y añade los mismos ids en la Edge Function.
+        const VINOS = [
+            {
+                id: '4meses',
+                nombre: 'Fuentenarro 4 meses en barrica',
+                denominacion: 'D.O. Ribera del Duero · Tinto',
+                desc: 'Un vino con cuerpo, notas de roble y frutos rojos maduros. Cuatro meses en barrica que le dan estructura sin perder la fruta de nuestros viñedos.',
+                notas: ['Tempranillo', '4 meses en barrica', '75 cl'],
+                img: '4_meses_barrica.jpg',
+                formatos: [
+                    { id: '4meses-botella', label: 'Botella', detalle: '1 × 75 cl', precio: 4.50, botellas: 1 },
+                    { id: '4meses-caja6',   label: 'Caja de 6', detalle: '6 × 75 cl · 4,50 €/botella', precio: 27.00, botellas: 6 }
+                ]
+            }
+            // , { id: 'crianza', nombre: 'Fuentenarro Crianza', ... formatos: [{ id: 'crianza-botella', ... }] }
+        ];
+
+        /* =====================================================================
+           UTILIDADES
+           ===================================================================== */
+        const FORMATOS = {};
+        VINOS.forEach(v => v.formatos.forEach(f => FORMATOS[f.id] = { ...f, vino: v.nombre, img: v.img }));
+
+        const eur = n => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+        const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const $ = id => document.getElementById(id);
+        const CLAVE_CESTA = 'fuentenarro_cesta_v1';
+        const CAMPOS_PERFIL = ['nombre', 'telefono', 'direccion', 'cp', 'ciudad', 'provincia'];
+        const ESTADOS = { pendiente_pago: 'Pendiente de pago', pagado: 'Pagado · preparando', enviado: 'Enviado', entregado: 'Entregado', cancelado: 'Cancelado' };
+
+        let cesta = cargarCesta();
+        let sesion = null;
+        let perfil = null;
+
+        function toast(msg) {
+            const t = $('toast');
+            t.textContent = msg;
+            t.classList.add('visible');
+            clearTimeout(t._t);
+            t._t = setTimeout(() => t.classList.remove('visible'), 2400);
+        }
+
+        /* =====================================================================
+           CATÁLOGO
+           ===================================================================== */
+        function pintarVinos() {
+            $('lista-vinos').innerHTML = VINOS.map(v => `
+                <article class="ficha">
+                    <div class="ficha-img"><img src="${v.img}" alt="Botella de ${esc(v.nombre)}, ${esc(v.denominacion)}"></div>
+                    <div>
+                        <span class="eyebrow">${esc(v.denominacion)}</span>
+                        <h3>${esc(v.nombre)}</h3>
+                        <p class="ficha-desc">${esc(v.desc)}</p>
+                        <ul class="notas">${v.notas.map(n => `<li>${esc(n)}</li>`).join('')}</ul>
+                        <div class="formatos" role="radiogroup" aria-label="Formato">
+                            ${v.formatos.map((f, i) => `
+                                <label class="formato">
+                                    <input type="radio" name="fmt-${v.id}" value="${f.id}" ${i === 0 ? 'checked' : ''}>
+                                    <span class="formato-box"><strong>${esc(f.label)}</strong><small>${esc(f.detalle)}</small><em>${eur(f.precio)}</em></span>
+                                </label>`).join('')}
+                        </div>
+                        <div class="comprar">
+                            <div class="stepper">
+                                <button type="button" onclick="pasoCantidad('${v.id}', -1)" aria-label="Menos">−</button>
+                                <input id="cant-${v.id}" type="number" min="1" max="99" value="1" aria-label="Cantidad">
+                                <button type="button" onclick="pasoCantidad('${v.id}', 1)" aria-label="Más">+</button>
+                            </div>
+                            <button class="btn btn-primario" onclick="anadirVino('${v.id}')">Añadir a la cesta</button>
+                        </div>
+                    </div>
+                </article>`).join('');
+        }
+
+        function pasoCantidad(vinoId, delta) {
+            const input = $('cant-' + vinoId);
+            input.value = Math.min(99, Math.max(1, (parseInt(input.value) || 1) + delta));
+        }
+
+        function anadirVino(vinoId) {
+            const formatoId = document.querySelector(`input[name="fmt-${vinoId}"]:checked`).value;
+            const cantidad = Math.min(99, Math.max(1, parseInt($('cant-' + vinoId).value) || 1));
+            anadirACesta(formatoId, cantidad);
+            $('cant-' + vinoId).value = 1;
+        }
+
+        /* =====================================================================
+           CESTA (se guarda en el navegador y se suman todas las líneas)
+           ===================================================================== */
+        function cargarCesta() {
+            try {
+                const c = JSON.parse(localStorage.getItem(CLAVE_CESTA) || '[]');
+                return c.filter(l => FORMATOS[l.id] && l.cantidad > 0);
+            } catch { return []; }
+        }
+
+        function guardarCesta() {
+            try { localStorage.setItem(CLAVE_CESTA, JSON.stringify(cesta)); } catch {}
+            pintarCesta();
+        }
+
+        function anadirACesta(formatoId, cantidad) {
+            const linea = cesta.find(l => l.id === formatoId);
+            if (linea) linea.cantidad = Math.min(99, linea.cantidad + cantidad);
+            else cesta.push({ id: formatoId, cantidad });
+            guardarCesta();
+            const f = FORMATOS[formatoId];
+            toast(`Añadido: ${cantidad} × ${f.label.toLowerCase()} de ${f.vino}`);
+            abrirCesta();
+        }
+
+        function cambiarCantidad(formatoId, delta) {
+            const linea = cesta.find(l => l.id === formatoId);
+            if (!linea) return;
+            linea.cantidad = Math.min(99, linea.cantidad + delta);
+            if (linea.cantidad <= 0) cesta = cesta.filter(l => l.id !== formatoId);
+            guardarCesta();
+        }
+
+        function fijarCantidad(formatoId, valor) {
+            const n = parseInt(valor);
+            const linea = cesta.find(l => l.id === formatoId);
+            if (!linea) return;
+            if (!n || n <= 0) cesta = cesta.filter(l => l.id !== formatoId);
+            else linea.cantidad = Math.min(99, n);
+            guardarCesta();
+        }
+
+        function quitarLinea(formatoId) {
+            cesta = cesta.filter(l => l.id !== formatoId);
+            guardarCesta();
+        }
+
+        function totales() {
+            const subtotal = cesta.reduce((a, l) => a + FORMATOS[l.id].precio * l.cantidad, 0);
+            const botellas = cesta.reduce((a, l) => a + FORMATOS[l.id].botellas * l.cantidad, 0);
+            const envio = cesta.length && botellas < ENVIO_GRATIS_DESDE_BOTELLAS ? GASTOS_ENVIO : 0;
+            return { subtotal, envio, total: subtotal + envio, botellas };
+        }
+
+        function pintarCesta() {
+            const t = totales();
+            const unidades = cesta.reduce((a, l) => a + l.cantidad, 0);
+            $('contador-cesta').textContent = unidades;
+
+            if (!cesta.length) {
+                $('cesta-lineas').innerHTML = '<div class="cesta-vacia"><p>Tu cesta está vacía.</p><button class="btn btn-borde" onclick="cerrarCesta()">Ver vinos</button></div>';
+                $('cesta-pie').style.display = 'none';
+            } else {
+                $('cesta-pie').style.display = '';
+                $('cesta-lineas').innerHTML = cesta.map(l => {
+                    const f = FORMATOS[l.id];
+                    return `
+                    <div class="linea">
+                        <img src="${f.img}" alt="">
+                        <div>
+                            <h4>${esc(f.vino)}</h4>
+                            <small>${esc(f.label)} · ${eur(f.precio)}/ud</small>
+                            <div class="stepper peq">
+                                <button type="button" onclick="cambiarCantidad('${l.id}', -1)" aria-label="Menos">−</button>
+                                <input type="number" min="0" max="99" value="${l.cantidad}" onchange="fijarCantidad('${l.id}', this.value)" aria-label="Cantidad">
+                                <button type="button" onclick="cambiarCantidad('${l.id}', 1)" aria-label="Más">+</button>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="precio">${eur(f.precio * l.cantidad)}</div>
+                            <button class="enlace quitar" onclick="quitarLinea('${l.id}')">Quitar</button>
+                        </div>
+                    </div>`;
+                }).join('');
+                const faltan = ENVIO_GRATIS_DESDE_BOTELLAS - t.botellas;
+                $('cesta-botellas').textContent = `${t.botellas} ${t.botellas === 1 ? 'botella' : 'botellas'} en total` +
+                    (faltan > 0 ? ` · añade ${faltan} más y el envío es gratis` : '');
+                $('cesta-subtotal').textContent = eur(t.subtotal);
+                $('cesta-envio').textContent = t.envio ? eur(t.envio) : 'Gratis';
+                $('cesta-total').textContent = eur(t.total);
+            }
+            if ($('vista-checkout').classList.contains('activa')) pintarResumen();
+        }
+
+        function abrirCesta() { $('cesta').classList.add('abierta'); $('velo').classList.add('abierto'); }
+        function cerrarCesta() { $('cesta').classList.remove('abierta'); $('velo').classList.remove('abierto'); }
+        function cerrarTodo() { cerrarCesta(); $('modal-cuenta').classList.remove('abierto'); $('velo').classList.remove('abierto'); }
+
+        /* =====================================================================
+           VISTAS
+           ===================================================================== */
+        function mostrarVista(nombre) {
+            document.querySelectorAll('.vista').forEach(v => v.classList.remove('activa'));
+            $('vista-' + nombre).classList.add('activa');
+            window.scrollTo({ top: 0 });
+        }
+
+        function irACheckout() {
+            if (!cesta.length) return;
+            cerrarCesta();
+            mostrarVista('checkout');
+            pintarResumen();
+            pintarAvisoCuenta();
+            rellenarCheckout();
+        }
+
+        function pintarResumen() {
+            const t = totales();
+            if (!cesta.length) { mostrarVista('tienda'); return; }
+            $('resumen-lineas').innerHTML = cesta.map(l => {
+                const f = FORMATOS[l.id];
+                return `<div class="resumen-linea"><span>${l.cantidad} × ${esc(f.vino)}<br><small style="color:var(--gris)">${esc(f.label)}</small></span><span>${eur(f.precio * l.cantidad)}</span></div>`;
+            }).join('');
+            $('res-subtotal').textContent = eur(t.subtotal);
+            $('res-envio').textContent = t.envio ? eur(t.envio) : 'Gratis';
+            $('res-total').textContent = eur(t.total);
+            $('btn-pagar').textContent = `Pagar ${eur(t.total)}`;
+        }
+
+        function pintarAvisoCuenta() {
+            if (sesion) {
+                $('aviso-cuenta').innerHTML = perfil
+                    ? `Hola, <strong>${esc(perfil.nombre || sesion.user.email)}</strong>. Hemos rellenado tus datos guardados; revisa que estén bien.`
+                    : `Has entrado como <strong>${esc(sesion.user.email)}</strong>. Rellena tus datos una vez y quedarán guardados para la próxima.`;
+                $('fila-guardar').style.display = '';
+            } else {
+                $('aviso-cuenta').innerHTML = `¿Ya eres cliente? <button type="button" class="enlace" onclick="abrirCuenta('entrar')">Entra</button> y rellenamos tus datos. ¿Primera vez? Puedes comprar como invitado o <button type="button" class="enlace" onclick="abrirCuenta('registro')">crear una cuenta</button> para no tener que escribirlos otra vez.`;
+                $('fila-guardar').style.display = 'none';
+            }
+        }
+
+        function rellenarCheckout() {
+            const f = $('form-checkout');
+            if (sesion && !f.email.value) f.email.value = sesion.user.email || '';
+            if (perfil) CAMPOS_PERFIL.forEach(c => { if (!f[c].value && perfil[c]) f[c].value = perfil[c]; });
+        }
+
+        /* =====================================================================
+           PAGO: crea el pedido en Supabase y abre Stripe con el total correcto
+           ===================================================================== */
+        async function pagar(e) {
+            e.preventDefault();
+            const f = e.target;
+            $('error-checkout').textContent = '';
+            if (!f.checkValidity()) { f.reportValidity(); return; }
+            if (!cesta.length) return;
+
+            const datos = Object.fromEntries(new FormData(f));
+            const envio = {
+                nombre: datos.nombre.trim(), email: datos.email.trim(), telefono: datos.telefono.trim(),
+                direccion: datos.direccion.trim(), cp: datos.cp.trim(), ciudad: datos.ciudad.trim(),
+                provincia: datos.provincia.trim(), notas: (datos.notas || '').trim()
+            };
+
+            const btn = $('btn-pagar');
+            btn.disabled = true;
+            btn.textContent = 'Conectando con el pago seguro…';
+
+            try {
+                if (sesion && datos.guardar) {
+                    const fila = { user_id: sesion.user.id, updated_at: new Date().toISOString() };
+                    CAMPOS_PERFIL.forEach(c => fila[c] = envio[c]);
+                    const { error } = await sb.from('perfiles').upsert(fila);
+                    if (!error) perfil = fila;
+                }
+
+                const { data, error } = await sb.functions.invoke('crear-checkout', {
+                    body: { items: cesta.map(l => ({ id: l.id, cantidad: l.cantidad })), envio }
+                });
+
+                if (error) {
+                    let msg = 'No hemos podido iniciar el pago. Inténtalo de nuevo o llámanos al 947 54 20 92.';
+                    try { const cuerpo = await error.context.json(); if (cuerpo?.error) msg = cuerpo.error; } catch {}
+                    throw new Error(msg);
+                }
+                window.location.href = data.url;
+            } catch (err) {
+                $('error-checkout').textContent = err.message;
+                btn.disabled = false;
+                pintarResumen();
+            }
+        }
+
+        /* =====================================================================
+           CUENTA DE CLIENTE
+           ===================================================================== */
+        async function cargarPerfil() {
+            perfil = null;
+            if (!sesion) return;
+            const { data } = await sb.from('perfiles').select('*').eq('user_id', sesion.user.id).maybeSingle();
+            perfil = data || null;
+        }
+
+        function actualizarCabecera() {
+            $('txt-cuenta').textContent = sesion ? 'Mi cuenta' : 'Entrar';
+        }
+
+        function abrirCuenta(pestana = 'entrar') {
+            cerrarCesta();
+            $('modal-cuenta').classList.add('abierto');
+            $('velo').classList.add('abierto');
+            sesion ? pintarMiCuenta() : pintarAcceso(pestana);
+        }
+
+        function pintarAcceso(pestana) {
+            const registro = pestana === 'registro';
+            $('cuenta-contenido').innerHTML = `
+                <div class="pestanas">
+                    <button class="${registro ? '' : 'activa'}" onclick="pintarAcceso('entrar')">Entrar</button>
+                    <button class="${registro ? 'activa' : ''}" onclick="pintarAcceso('registro')">Crear cuenta</button>
+                </div>
+                <button class="btn-google" onclick="entrarGoogle()">
+                    <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
+                    Continuar con Google
+                </button>
+                <div class="o">o con tu correo</div>
+                <form onsubmit="${registro ? 'registrarse' : 'entrarEmail'}(event)">
+                    <div class="campos">
+                        <div class="campo ancho"><label for="a-email">Correo electrónico</label><input id="a-email" type="email" required autocomplete="email"></div>
+                        <div class="campo ancho"><label for="a-pass">Contraseña</label><input id="a-pass" type="password" required minlength="6" autocomplete="${registro ? 'new-password' : 'current-password'}"></div>
+                    </div>
+                    <div class="error" id="error-acceso" role="alert"></div>
+                    <button class="btn btn-primario btn-bloque" type="submit" style="margin-top: 8px;">${registro ? 'Crear cuenta' : 'Entrar'}</button>
+                </form>
+                ${registro ? '<p class="seguro">Con tu cuenta guardamos tu dirección y teléfono para que en el próximo pedido solo tengas que pagar.</p>' : ''}`;
+        }
+
+        async function entrarGoogle() {
+            const { error } = await sb.auth.signInWithOAuth({
+                provider: 'google',
+                options: { redirectTo: window.location.origin + window.location.pathname }
+            });
+            if (error) $('error-acceso').textContent = 'No se pudo entrar con Google: ' + error.message;
+        }
+
+        async function entrarEmail(e) {
+            e.preventDefault();
+            const { error } = await sb.auth.signInWithPassword({ email: $('a-email').value.trim(), password: $('a-pass').value });
+            if (error) { $('error-acceso').textContent = 'Correo o contraseña incorrectos.'; return; }
+            cerrarTodo();
+            toast('Has entrado en tu cuenta');
+        }
+
+        async function registrarse(e) {
+            e.preventDefault();
+            const { data, error } = await sb.auth.signUp({
+                email: $('a-email').value.trim(),
+                password: $('a-pass').value,
+                options: { emailRedirectTo: window.location.origin + window.location.pathname }
+            });
+            if (error) { $('error-acceso').textContent = 'No se pudo crear la cuenta: ' + error.message; return; }
+            if (data.session) { cerrarTodo(); toast('Cuenta creada'); }
+            else $('cuenta-contenido').innerHTML = '<h3 style="font-family:var(--serif);font-weight:500;font-size:26px;margin:0 0 10px">Revisa tu correo</h3><p>Te hemos enviado un enlace para confirmar la cuenta. Después podrás entrar y tus datos quedarán guardados.</p>';
+        }
+
+        async function pintarMiCuenta() {
+            const p = perfil || {};
+            $('cuenta-contenido').innerHTML = `
+                <span class="eyebrow">Mi cuenta</span>
+                <h3 style="font-family:var(--serif);font-weight:500;font-size:28px;margin:4px 0 4px">${esc(p.nombre || 'Hola')}</h3>
+                <p style="color:var(--gris);margin:0 0 20px;font-size:14px">${esc(sesion.user.email)}</p>
+                <div class="pestanas">
+                    <button class="activa" id="tab-datos" onclick="tabCuenta('datos')">Mis datos</button>
+                    <button id="tab-pedidos" onclick="tabCuenta('pedidos')">Mis pedidos</button>
+                </div>
+                <div id="cuenta-datos">
+                    <form onsubmit="guardarPerfil(event)">
+                        <div class="campos">
+                            <div class="campo"><label>Nombre y apellidos</label><input name="nombre" value="${esc(p.nombre)}" required maxlength="120"></div>
+                            <div class="campo"><label>Teléfono</label><input name="telefono" type="tel" value="${esc(p.telefono)}" required pattern="[0-9+ ]{9,16}"></div>
+                            <div class="campo ancho"><label>Dirección</label><input name="direccion" value="${esc(p.direccion)}" required maxlength="200"></div>
+                            <div class="campo"><label>Código postal</label><input name="cp" value="${esc(p.cp)}" required pattern="[0-9]{5}" maxlength="5"></div>
+                            <div class="campo"><label>Localidad</label><input name="ciudad" value="${esc(p.ciudad)}" required maxlength="80"></div>
+                            <div class="campo ancho"><label>Provincia</label><input name="provincia" value="${esc(p.provincia)}" required maxlength="80"></div>
+                        </div>
+                        <button class="btn btn-primario btn-bloque" style="margin-top:18px">Guardar datos</button>
+                    </form>
+                </div>
+                <div id="cuenta-pedidos" style="display:none"><p style="color:var(--gris)">Cargando…</p></div>
+                <p style="text-align:center;margin-top:22px"><button class="enlace" onclick="cerrarSesion()">Cerrar sesión</button></p>`;
+        }
+
+        async function tabCuenta(tab) {
+            $('tab-datos').classList.toggle('activa', tab === 'datos');
+            $('tab-pedidos').classList.toggle('activa', tab === 'pedidos');
+            $('cuenta-datos').style.display = tab === 'datos' ? '' : 'none';
+            $('cuenta-pedidos').style.display = tab === 'pedidos' ? '' : 'none';
+            if (tab !== 'pedidos') return;
+            const { data, error } = await sb.from('pedidos')
+                .select('numero, created_at, estado, total_cent, items')
+                .neq('estado', 'pendiente_pago')
+                .order('created_at', { ascending: false }).limit(30);
+            if (error) { $('cuenta-pedidos').innerHTML = '<p class="error">No se pudieron cargar los pedidos.</p>'; return; }
+            $('cuenta-pedidos').innerHTML = data.length ? data.map(p => `
+                <div class="pedido-item">
+                    <div class="cab"><span>Pedido nº ${p.numero}</span><span>${eur(p.total_cent / 100)}</span></div>
+                    <div style="color:var(--gris);font-size:13px;margin-bottom:6px">${new Date(p.created_at).toLocaleDateString('es-ES')} · <span class="estado">${ESTADOS[p.estado] || p.estado}</span></div>
+                    ${p.items.map(i => `<div>${i.cantidad} × ${esc(i.nombre)}</div>`).join('')}
+                </div>`).join('') : '<p style="color:var(--gris)">Todavía no tienes pedidos.</p>';
+        }
+
+        async function guardarPerfil(e) {
+            e.preventDefault();
+            const datos = Object.fromEntries(new FormData(e.target));
+            const fila = { user_id: sesion.user.id, updated_at: new Date().toISOString() };
+            CAMPOS_PERFIL.forEach(c => fila[c] = (datos[c] || '').trim());
+            const { error } = await sb.from('perfiles').upsert(fila);
+            if (error) { toast('No se pudieron guardar los datos'); return; }
+            perfil = fila;
+            toast('Datos guardados');
+        }
+
+        async function cerrarSesion() {
+            await sb.auth.signOut();
+            cerrarTodo();
+            toast('Has cerrado sesión');
+        }
+
+        /* =====================================================================
+           ARRANQUE
+           ===================================================================== */
+        sb.auth.onAuthStateChange((_evento, s) => {
+            sesion = s;
+            actualizarCabecera();
+            // Se aplaza para no hacer consultas dentro del propio callback de Supabase
+            setTimeout(async () => {
+                await cargarPerfil();
+                if ($('vista-checkout').classList.contains('activa')) { pintarAvisoCuenta(); rellenarCheckout(); }
+            }, 0);
+        });
+
+        (function iniciar() {
+            $('anio').textContent = new Date().getFullYear();
+            pintarVinos();
+            pintarCesta();
+
+            const params = new URLSearchParams(location.search);
+            const resultado = params.get('pedido');
+            if (resultado === 'ok') {
+                cesta = [];
+                guardarCesta();
+                const n = parseInt(params.get('n'));
+                if (n) $('txt-confirmacion').innerHTML = `Hemos recibido tu pedido <strong>nº ${n}</strong>. Stripe te enviará el justificante de pago por correo y nosotros te avisaremos cuando salga de la bodega.`;
+                mostrarVista('confirmacion');
+            } else if (resultado === 'cancelado') {
+                toast('Pago cancelado. Tu cesta sigue guardada.');
+            }
+            if (resultado) history.replaceState(null, '', location.pathname);
+        })();
+
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarTodo(); });
+    </script>
+</body>
+</html>
