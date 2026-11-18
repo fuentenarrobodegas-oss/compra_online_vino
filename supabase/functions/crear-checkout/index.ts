@@ -1,0 +1,152 @@
+// Edge Function: crear-checkout
+// Recibe la cesta y los datos de envío, guarda el pedido en Supabase y crea
+// una sesión de Stripe Checkout con TODAS las líneas y el total correcto.
+//
+// Despliegue:  supabase functions deploy crear-checkout --no-verify-jwt
+// Secretos:    supabase secrets set STRIPE_SECRET_KEY=sk_live_... SITE_URL=https://fuentenarrobodegas-oss.github.io/compra_online_vino/
+
+import Stripe from "npm:stripe@17";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+// ---------------------------------------------------------------------
+// CATÁLOGO OFICIAL (aquí manda el precio real; el del navegador es solo visual)
+// Los ids deben coincidir con los de VINOS en index.html
+// ---------------------------------------------------------------------
+const CATALOGO: Record<string, { nombre: string; precio_cent: number; botellas: number }> = {
+  "4meses-botella": { nombre: "Fuentenarro 4 meses en barrica · Botella 75 cl", precio_cent: 450, botellas: 1 },
+  "4meses-caja6": { nombre: "Fuentenarro 4 meses en barrica · Caja de 6 botellas", precio_cent: 2700, botellas: 6 },
+};
+
+// Gastos de envío en céntimos (0 = gratis). Debe coincidir con GASTOS_ENVIO de index.html
+const GASTOS_ENVIO_CENT = 0;
+
+const SITE_URL = Deno.env.get("SITE_URL") ?? "https://fuentenarrobodegas-oss.github.io/compra_online_vino/";
+
+const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
+  httpClient: Stripe.createFetchHttpClient(),
+});
+
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  { auth: { persistSession: false } },
+);
+
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const json = (cuerpo: unknown, status = 200) =>
+  new Response(JSON.stringify(cuerpo), { status, headers: { ...cors, "Content-Type": "application/json" } });
+
+class ErrorUsuario extends Error {}
+
+const texto = (v: unknown, max: number, obligatorio = true) => {
+  const s = typeof v === "string" ? v.trim().slice(0, max) : "";
+  if (obligatorio && !s) throw new ErrorUsuario("Faltan datos de envío. Revisa el formulario.");
+  return s;
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (req.method !== "POST") return json({ error: "Método no permitido" }, 405);
+
+  try {
+    const { items, envio } = await req.json();
+
+    // ---- 1. Validar la cesta contra el catálogo ----
+    if (!Array.isArray(items) || items.length === 0 || items.length > 20) {
+      throw new ErrorUsuario("La cesta está vacía.");
+    }
+    const lineas = items.map((it: { id: string; cantidad: number }) => {
+      const prod = CATALOGO[it?.id];
+      const cantidad = Math.floor(Number(it?.cantidad));
+      if (!prod) throw new ErrorUsuario("Hay un producto en la cesta que ya no está disponible. Vacía la cesta y vuelve a añadirlo.");
+      if (!(cantidad >= 1 && cantidad <= 99)) throw new ErrorUsuario("Cantidad no válida.");
+      return { id: it.id, nombre: prod.nombre, precio_cent: prod.precio_cent, cantidad, botellas: prod.botellas * cantidad };
+    });
+
+    const subtotal = lineas.reduce((a, l) => a + l.precio_cent * l.cantidad, 0);
+    const botellas = lineas.reduce((a, l) => a + l.botellas, 0);
+    const total = subtotal + GASTOS_ENVIO_CENT;
+
+    // ---- 2. Validar datos de envío ----
+    const datos = {
+      nombre: texto(envio?.nombre, 120),
+      email: texto(envio?.email, 160),
+      telefono: texto(envio?.telefono, 16),
+      direccion: texto(envio?.direccion, 200),
+      cp: texto(envio?.cp, 5),
+      ciudad: texto(envio?.ciudad, 80),
+      provincia: texto(envio?.provincia, 80),
+      notas: texto(envio?.notas, 400, false),
+    };
+    if (!/^\S+@\S+\.\S+$/.test(datos.email)) throw new ErrorUsuario("El correo electrónico no es válido.");
+    if (!/^\d{5}$/.test(datos.cp)) throw new ErrorUsuario("El código postal debe tener 5 cifras.");
+    if (!/^[0-9+ ]{9,16}$/.test(datos.telefono)) throw new ErrorUsuario("El teléfono no es válido.");
+
+    // ---- 3. ¿Cliente con cuenta? (si no, compra como invitado) ----
+    let userId: string | null = null;
+    const token = req.headers.get("Authorization")?.replace("Bearer ", "");
+    if (token && token.split(".").length === 3) {
+      const { data } = await supabase.auth.getUser(token);
+      userId = data?.user?.id ?? null;
+    }
+
+    // ---- 4. Guardar el pedido como "pendiente de pago" ----
+    const { data: pedido, error: errPedido } = await supabase
+      .from("pedidos")
+      .insert({
+        ...datos,
+        user_id: userId,
+        items: lineas.map(({ id, nombre, precio_cent, cantidad }) => ({ id, nombre, precio_cent, cantidad })),
+        botellas,
+        envio_cent: GASTOS_ENVIO_CENT,
+        total_cent: total,
+      })
+      .select("id, numero")
+      .single();
+    if (errPedido) throw errPedido;
+
+    // ---- 5. Crear la sesión de Stripe con todas las líneas ----
+    const resumenEnvio = `${datos.nombre} · ${datos.telefono} · ${datos.direccion}, ${datos.cp} ${datos.ciudad} (${datos.provincia})`;
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      locale: "es",
+      customer_email: datos.email,
+      line_items: [
+        ...lineas.map((l) => ({
+          quantity: l.cantidad,
+          price_data: {
+            currency: "eur",
+            unit_amount: l.precio_cent,
+            product_data: { name: l.nombre },
+          },
+        })),
+        ...(GASTOS_ENVIO_CENT > 0
+          ? [{
+            quantity: 1,
+            price_data: { currency: "eur", unit_amount: GASTOS_ENVIO_CENT, product_data: { name: "Gastos de envío" } },
+          }]
+          : []),
+      ],
+      metadata: { pedido_id: pedido.id, numero: String(pedido.numero), envio: resumenEnvio.slice(0, 480) },
+      payment_intent_data: {
+        description: `Pedido nº ${pedido.numero} · ${botellas} botellas`,
+        metadata: { pedido_id: pedido.id, numero: String(pedido.numero), envio: resumenEnvio.slice(0, 480) },
+      },
+      success_url: `${SITE_URL}?pedido=ok&n=${pedido.numero}`,
+      cancel_url: `${SITE_URL}?pedido=cancelado`,
+    });
+
+    await supabase.from("pedidos").update({ stripe_session_id: session.id }).eq("id", pedido.id);
+
+    return json({ url: session.url });
+  } catch (e) {
+    if (e instanceof ErrorUsuario) return json({ error: e.message }, 400);
+    console.error(e);
+    return json({ error: "Error interno al crear el pago. Inténtalo de nuevo en unos minutos." }, 500);
+  }
+});

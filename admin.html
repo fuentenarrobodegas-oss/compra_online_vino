@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Pedidos · Bodegas Fuentenarro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --granate:#6b1e2e; --granate-osc:#3f111b; --oro:#b08d57; --crema:#f6f0e6; --papel:#fbf8f3; --tinta:#2a2422; --gris:#7a706b; --linea:#e6ddd0; --ok:#3f6b3a; }
+        * { box-sizing: border-box; }
+        body { margin:0; font-family:"Lato",sans-serif; background:var(--papel); color:var(--tinta); }
+        header { background:var(--granate-osc); color:#fff; padding:16px 24px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+        header strong { font-family:"Cormorant Garamond",serif; font-weight:500; font-size:24px; letter-spacing:4px; text-transform:uppercase; }
+        header button { background:none; border:1px solid rgba(255,255,255,.4); color:#fff; padding:8px 14px; cursor:pointer; font-size:12px; letter-spacing:1px; text-transform:uppercase; }
+        main { max-width:1100px; margin:0 auto; padding:28px 20px 60px; }
+        .filtros { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:22px; align-items:center; }
+        .filtros button { background:#fff; border:1px solid var(--linea); padding:9px 14px; cursor:pointer; font-size:13px; }
+        .filtros button.activo { background:var(--granate); color:#fff; border-color:var(--granate); }
+        .filtros .der { margin-left:auto; }
+        .num { background:var(--crema); color:var(--granate); border-radius:999px; padding:1px 8px; font-size:12px; font-weight:700; margin-left:4px; }
+        .activo .num { background:rgba(255,255,255,.2); color:#fff; }
+        .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px; }
+        .pedido { background:#fff; border:1px solid var(--linea); padding:20px; display:flex; flex-direction:column; gap:10px; }
+        .pedido .cab { display:flex; justify-content:space-between; align-items:baseline; }
+        .pedido h3 { font-family:"Cormorant Garamond",serif; font-weight:500; font-size:24px; margin:0; }
+        .total { font-family:"Cormorant Garamond",serif; font-size:24px; color:var(--granate); }
+        .meta { font-size:12px; color:var(--gris); }
+        .estado { font-size:11px; letter-spacing:1px; text-transform:uppercase; padding:3px 8px; font-weight:700; background:var(--crema); color:var(--granate); }
+        .estado.pagado { background:#fff3cd; color:#7a5a00; }
+        .estado.enviado { background:#e3eefc; color:#1d4f91; }
+        .estado.entregado { background:#e4f1e2; color:var(--ok); }
+        .estado.cancelado, .estado.pendiente_pago { background:#eee; color:#777; }
+        .items { margin:0; padding-left:18px; font-size:14px; }
+        .direccion { background:var(--papel); border-left:3px solid var(--oro); padding:10px 12px; font-size:14px; line-height:1.5; white-space:pre-line; }
+        .notas { font-size:13px; background:#fff8e6; padding:8px 10px; }
+        .botones { display:flex; gap:8px; flex-wrap:wrap; margin-top:auto; }
+        .botones button, .botones a { flex:1; text-align:center; text-decoration:none; padding:9px 10px; font-size:12px; letter-spacing:1px; text-transform:uppercase; cursor:pointer; border:1px solid var(--granate); background:#fff; color:var(--granate); }
+        .botones .prim { background:var(--granate); color:#fff; }
+        .login { max-width:380px; margin:60px auto; background:#fff; border:1px solid var(--linea); padding:32px; }
+        .login h2 { font-family:"Cormorant Garamond",serif; font-weight:500; font-size:28px; margin:0 0 18px; }
+        .login input { width:100%; padding:12px; border:1px solid var(--linea); margin-bottom:10px; font-size:15px; }
+        .login button { width:100%; padding:12px; border:0; background:var(--granate); color:#fff; cursor:pointer; font-size:13px; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:8px; }
+        .login .g { background:#fff; color:var(--tinta); border:1px solid var(--linea); }
+        .error { color:#a3172f; font-size:14px; }
+        .vacio { text-align:center; color:var(--gris); padding:60px 0; }
+    </style>
+</head>
+<body>
+    <header>
+        <strong>Fuentenarro · Pedidos</strong>
+        <div id="cab-derecha"></div>
+    </header>
+    <main id="app"></main>
+
+    <script>
+        const sb = supabase.createClient('https://wifukeifpabvxuiwpeao.supabase.co', 'sb_publishable_kzSSg5V2d2YVdvSpfLzKlg_ZWeJUPr2');
+        const $ = id => document.getElementById(id);
+        const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+        const eur = c => (c / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+        const ESTADOS = { pendiente_pago:'Sin pagar', pagado:'Por enviar', enviado:'Enviado', entregado:'Entregado', cancelado:'Cancelado' };
+        const FILTROS = [
+            ['pagado', 'Por enviar'], ['enviado', 'Enviados'], ['entregado', 'Entregados'],
+            ['todos', 'Todos los pagados'], ['pendiente_pago', 'Sin pagar / abandonados']
+        ];
+        let pedidos = [];
+        let filtro = 'pagado';
+
+        function pintarLogin(msg = '') {
+            $('cab-derecha').innerHTML = '';
+            $('app').innerHTML = `
+                <form class="login" onsubmit="entrar(event)">
+                    <h2>Acceso bodega</h2>
+                    <input id="email" type="email" placeholder="Correo" required autocomplete="email">
+                    <input id="pass" type="password" placeholder="Contraseña" required autocomplete="current-password">
+                    <button>Entrar</button>
+                    <button type="button" class="g" onclick="entrarGoogle()">Entrar con Google</button>
+                    <p class="error">${esc(msg)}</p>
+                </form>`;
+        }
+
+        async function entrar(e) {
+            e.preventDefault();
+            const { error } = await sb.auth.signInWithPassword({ email: $('email').value, password: $('pass').value });
+            if (error) pintarLogin('Correo o contraseña incorrectos.');
+        }
+        function entrarGoogle() {
+            sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname } });
+        }
+        async function salir() { await sb.auth.signOut(); }
+
+        async function cargar() {
+            const { data: esAdmin } = await sb.rpc('es_admin');
+            if (!esAdmin) {
+                await sb.auth.signOut();
+                pintarLogin('Esta cuenta no tiene permiso de administrador.');
+                return;
+            }
+            $('cab-derecha').innerHTML = '<button onclick="cargar()">↻ Actualizar</button> <button onclick="salir()">Salir</button>';
+            const { data, error } = await sb.from('pedidos').select('*').order('created_at', { ascending: false }).limit(500);
+            if (error) { $('app').innerHTML = `<p class="error">${esc(error.message)}</p>`; return; }
+            pedidos = data;
+            pintar();
+        }
+
+        function filtrados(f) {
+            if (f === 'todos') return pedidos.filter(p => ['pagado', 'enviado', 'entregado'].includes(p.estado));
+            if (f === 'pendiente_pago') return pedidos.filter(p => p.estado === 'pendiente_pago' || p.estado === 'cancelado');
+            return pedidos.filter(p => p.estado === f);
+        }
+
+        function pintar() {
+            const lista = filtrados(filtro);
+            $('app').innerHTML = `
+                <div class="filtros">
+                    ${FILTROS.map(([k, t]) => `<button class="${k === filtro ? 'activo' : ''}" onclick="filtro='${k}'; pintar()">${t}<span class="num">${filtrados(k).length}</span></button>`).join('')}
+                    <button class="der" onclick="exportarCSV()">⬇ Exportar CSV</button>
+                </div>
+                ${lista.length ? `<div class="grid">${lista.map(tarjeta).join('')}</div>` : '<p class="vacio">No hay pedidos en esta lista.</p>'}`;
+        }
+
+        function tarjeta(p) {
+            const dir = `${p.nombre}\n${p.direccion}\n${p.cp} ${p.ciudad} (${p.provincia})\nTel. ${p.telefono}`;
+            return `
+            <article class="pedido">
+                <div class="cab"><h3>Nº ${p.numero}</h3><span class="total">${eur(p.total_cent)}</span></div>
+                <div class="meta">${new Date(p.created_at).toLocaleString('es-ES')} · <span class="estado ${p.estado}">${ESTADOS[p.estado]}</span> · ${p.botellas} botellas</div>
+                <ul class="items">${p.items.map(i => `<li>${i.cantidad} × ${esc(i.nombre)}</li>`).join('')}</ul>
+                <div class="direccion">${esc(dir)}</div>
+                ${p.notas ? `<div class="notas"><strong>Notas:</strong> ${esc(p.notas)}</div>` : ''}
+                <div class="meta"><a href="mailto:${esc(p.email)}">${esc(p.email)}</a> · <a href="tel:${esc(p.telefono.replace(/\s/g, ''))}">Llamar</a></div>
+                <div class="botones">
+                    <button onclick="copiar('${p.id}')">Copiar dirección</button>
+                    ${p.estado === 'pagado' ? `<button class="prim" onclick="cambiarEstado('${p.id}', 'enviado')">Marcar enviado</button>` : ''}
+                    ${p.estado === 'enviado' ? `<button class="prim" onclick="cambiarEstado('${p.id}', 'entregado')">Marcar entregado</button>` : ''}
+                </div>
+            </article>`;
+        }
+
+        async function copiar(id) {
+            const p = pedidos.find(x => x.id === id);
+            await navigator.clipboard.writeText(`${p.nombre}\n${p.direccion}\n${p.cp} ${p.ciudad} (${p.provincia})\nTel. ${p.telefono}`);
+            alert('Dirección copiada');
+        }
+
+        async function cambiarEstado(id, estado) {
+            const extra = estado === 'enviado' ? { enviado_at: new Date().toISOString() } : {};
+            const { error } = await sb.from('pedidos').update({ estado, ...extra }).eq('id', id);
+            if (error) { alert('No se pudo actualizar: ' + error.message); return; }
+            const p = pedidos.find(x => x.id === id);
+            Object.assign(p, { estado, ...extra });
+            pintar();
+        }
+
+        function exportarCSV() {
+            const cols = ['numero', 'created_at', 'estado', 'nombre', 'telefono', 'email', 'direccion', 'cp', 'ciudad', 'provincia', 'botellas', 'total', 'productos', 'notas'];
+            const filas = filtrados(filtro).map(p => [
+                p.numero, p.created_at, ESTADOS[p.estado], p.nombre, p.telefono, p.email, p.direccion, p.cp, p.ciudad, p.provincia,
+                p.botellas, (p.total_cent / 100).toFixed(2).replace('.', ','), p.items.map(i => `${i.cantidad} x ${i.nombre}`).join(' | '), p.notas || ''
+            ]);
+            const csv = [cols, ...filas].map(f => f.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+            a.download = `pedidos-${filtro}-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+        }
+
+        sb.auth.onAuthStateChange((_e, s) => setTimeout(() => s ? cargar() : pintarLogin(), 0));
+    </script>
+</body>
+</html>
